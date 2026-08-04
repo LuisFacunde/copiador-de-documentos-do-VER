@@ -1,14 +1,3 @@
-"""
-processar_exames.py — Ponto de entrada e orquestrador.
-
-Este arquivo NÃO contém regras de negócio.
-Ele apenas:
-  1. Lê a lista de prontuários da planilha Excel  (src/leitor_planilha.py)
-  2. Itera cada prontuário, copia os PDFs válidos  (src/copiador.py)
-  3. Acumula estatísticas e exibe o relatório final (src/relatorio.py)
-
-Para ajustar caminhos ou critérios, edite src/config.py.
-"""
 from pathlib import Path
 
 from src.config import DIR_EXAMES_ORIGEM, DIR_EXAMES_DESTINO
@@ -22,17 +11,9 @@ def processar_exames(
     dir_destino: str = DIR_EXAMES_DESTINO,
     verbose: bool = True,
 ) -> None:
-    """
-    Fluxo principal: lê prontuários da planilha, processa e copia PDFs válidos.
-
-    Parâmetros:
-        dir_origem  : diretório raiz com subpastas de prontuários
-        dir_destino : diretório de saída (criado automaticamente)
-        verbose     : exibir detalhes de cada arquivo processado
-    """
     Path(dir_destino).mkdir(parents=True, exist_ok=True)
 
-    # 1. Ler lista de prontuários da planilha
+
     try:
         pronunciarios = ler_pronunciarios()
     except (FileNotFoundError, ValueError) as exc:
@@ -42,7 +23,6 @@ def processar_exames(
     total = len(pronunciarios)
     print(f"📋 Total de prontuários na planilha: {total}\n")
 
-    # 2. Acumulador de estatísticas
     estatisticas = {
         'pacientes_processados': 0,
         'pacientes_sem_exames': 0,
@@ -54,7 +34,6 @@ def processar_exames(
         'erros': 0,
     }
 
-    # 3. Processar cada prontuário
     for pronunciario in pronunciarios:
         resultado = processar_pronunciario(
             pronunciario=pronunciario,
@@ -75,7 +54,6 @@ def processar_exames(
         estatisticas['arquivos_fora_janela']   += resultado['fora_janela']
         estatisticas['erros']                  += resultado['erros']
 
-    # 4. Relatório final 
     imprimir_relatorio(estatisticas)
 
 

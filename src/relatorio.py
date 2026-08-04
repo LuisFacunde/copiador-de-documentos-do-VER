@@ -1,4 +1,3 @@
-# Nenhuma lógica de negócio aqui: apenas formatação e print.
 def imprimir_relatorio(estatisticas: dict) -> None:
 
     sep = "=" * 70
