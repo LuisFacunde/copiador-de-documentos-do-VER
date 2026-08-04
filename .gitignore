@@ -1,0 +1,35 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ─── Ambientes virtuais ────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+.env/
+ENV/
+
+# ─── Dados sensíveis / planilhas ──────────────────────────────────────────────
+dados/
+
+# ─── IDEs e editores ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ─── Sistema operacional ──────────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ─── Logs e temporários ───────────────────────────────────────────────────────
+*.log
+*.tmp
