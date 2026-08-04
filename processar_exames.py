@@ -1,3 +1,6 @@
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 from pathlib import Path
 
 from src.config import DIR_EXAMES_ORIGEM, DIR_EXAMES_DESTINO
@@ -27,6 +30,7 @@ def processar_exames(
         'pacientes_processados': 0,
         'pacientes_sem_exames': 0,
         'arquivos_copiados': 0,
+        'arquivos_pulados': 0,
         'arquivos_invalidos': 0,
         'arquivos_tipo_invalido': 0,
         'arquivos_fora_periodo': 0,
@@ -48,6 +52,7 @@ def processar_exames(
             estatisticas['pacientes_processados'] += 1
 
         estatisticas['arquivos_copiados']      += resultado['copiados']
+        estatisticas['arquivos_pulados']       += resultado['pulados']
         estatisticas['arquivos_invalidos']     += resultado['invalidos']
         estatisticas['arquivos_tipo_invalido'] += resultado['tipo_invalido']
         estatisticas['arquivos_fora_periodo']  += resultado['fora_periodo']

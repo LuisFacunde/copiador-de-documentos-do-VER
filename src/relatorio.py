@@ -9,6 +9,7 @@ def imprimir_relatorio(estatisticas: dict) -> None:
     print(f"✓  Prontuários com exames copiados : {estatisticas['pacientes_processados']}")
     print(f"⊘  Prontuários sem exames válidos  : {estatisticas['pacientes_sem_exames']}")
     print(f"✓  Arquivos PDF copiados           : {estatisticas['arquivos_copiados']}")
+    print(f"⏭  Arquivos já existentes (pulados) : {estatisticas['arquivos_pulados']}")
     print(sep_menor)
     print(f"⊘  Arquivos com nome inválido      : {estatisticas['arquivos_invalidos']}")
     print(f"⊘  Arquivos com tipo inválido      : {estatisticas['arquivos_tipo_invalido']}")

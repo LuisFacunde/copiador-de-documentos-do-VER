@@ -12,6 +12,7 @@ def processar_pronunciario(
 ) -> dict:
     stats = {
         'copiados': 0,
+        'pulados': 0,
         'invalidos': 0,
         'tipo_invalido': 0,
         'fora_periodo': 0,
@@ -55,8 +56,17 @@ def processar_pronunciario(
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
     for item in para_copiar:
+        arquivo_destino = pasta_destino / item['nome']
+        if arquivo_destino.exists():
+            if verbose:
+                print(
+                    f"⏭ {pronunciario}/{item['nome']} "
+                    f"({item['tipo']}) — já copiado"
+                )
+            stats['pulados'] += 1
+            continue
         try:
-            shutil.copy2(item['path'], pasta_destino / item['nome'])
+            shutil.copy2(item['path'], arquivo_destino)
             if verbose:
                 print(
                     f"✓ {pronunciario}/{item['nome']} "
