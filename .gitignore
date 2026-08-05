@@ -19,6 +19,9 @@ ENV/
 # Dados sensíveis / planilhas
 dados/
 
+# Banco de dados local
+*.db
+
 # IDEs e editores
 .vscode/
 .idea/

@@ -3,13 +3,13 @@ from pathlib import Path
 
 _BASE = Path(__file__).resolve().parent.parent
 
-PLANILHA_PRONUNCIARIOS = _BASE / 'dados' / 'planilha_de_testes.xlsx'
+PLANILHA_PRONTUARIOS = _BASE / 'dados' / 'planilha' / 'Pesquisa Exames RET com Oct 4 meses antes e depois.xlsx'
 
 ABA_PLANILHA = 'Select fav_pesquisa'
 
-COLUNA_PRONUNCIARIO = 'PRONT'
+COLUNA_PRONTUARIO = 'PRONT'
 
-DIR_EXAMES_ORIGEM = 'C:/Users/luis.silva/Desktop/anexos_exames'
+DIR_EXAMES_ORIGEM = r'\\192.168.4.18\c$\apache24\htdocs\fav_exames\anexo'
 
 DIR_EXAMES_DESTINO = 'C:/Users/luis.silva/Desktop/anexos_exames_copias'
 
@@ -24,3 +24,7 @@ MAPA_TIPOS = {
 JANELA_DIAS = 120
 
 EXTENSAO_PERMITIDA = '.pdf'
+
+LIMITE_PACIENTES_LOTE = 2500
+
+BANCO_HISTORICO = _BASE / 'dados' / 'bd' / 'historico.db'

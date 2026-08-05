@@ -1,19 +1,47 @@
-def imprimir_relatorio(estatisticas: dict) -> None:
+import logging
+
+
+def imprimir_relatorio(
+    estatisticas: dict,
+    info_lote: dict | None = None,
+    logger: logging.Logger | None = None,
+) -> None:
 
     sep = "=" * 70
     sep_menor = "-" * 70
 
-    print(f"\n{sep}")
-    print("📊  RELATÓRIO FINAL")
-    print(sep)
-    print(f"✓  Prontuários com exames copiados : {estatisticas['pacientes_processados']}")
-    print(f"⊘  Prontuários sem exames válidos  : {estatisticas['pacientes_sem_exames']}")
-    print(f"✓  Arquivos PDF copiados           : {estatisticas['arquivos_copiados']}")
-    print(f"⏭  Arquivos já existentes (pulados) : {estatisticas['arquivos_pulados']}")
-    print(sep_menor)
-    print(f"⊘  Arquivos com nome inválido      : {estatisticas['arquivos_invalidos']}")
-    print(f"⊘  Arquivos com tipo inválido      : {estatisticas['arquivos_tipo_invalido']}")
-    print(f"⊘  Arquivos fora do período        : {estatisticas['arquivos_fora_periodo']}")
-    print(f"⊘  Arquivos fora da janela         : {estatisticas['arquivos_fora_janela']}")
-    print(f"❌  Erros na cópia                 : {estatisticas['erros']}")
-    print(sep)
+    linhas = [
+        f"\n{sep}",
+        "📊  RELATÓRIO FINAL",
+    ]
+
+    if info_lote:
+        linhas.append(f"📦  Lote {info_lote['numero']} — {info_lote['data_envio']}")
+
+    linhas.extend([
+        sep,
+        f"✓  Prontuários com exames copiados : {estatisticas['pacientes_processados']}",
+        f"⊘  Prontuários sem exames válidos  : {estatisticas['pacientes_sem_exames']}",
+        f"✓  Arquivos PDF copiados           : {estatisticas['arquivos_copiados']}",
+        f"⏭  Arquivos já existentes (pulados) : {estatisticas['arquivos_pulados']}",
+        sep_menor,
+        f"⊘  Arquivos com nome inválido      : {estatisticas['arquivos_invalidos']}",
+        f"⊘  Arquivos com tipo inválido      : {estatisticas['arquivos_tipo_invalido']}",
+        f"⊘  Arquivos fora do período        : {estatisticas['arquivos_fora_periodo']}",
+        f"⊘  Arquivos fora da janela         : {estatisticas['arquivos_fora_janela']}",
+        f"❌  Erros na cópia                 : {estatisticas['erros']}",
+    ])
+
+    if info_lote and 'pendentes' in info_lote:
+        linhas.append(sep_menor)
+        linhas.append(
+            f"📋  Prontuários pendentes (próximo lote): {info_lote['pendentes']}"
+        )
+
+    linhas.append(sep)
+
+    for linha in linhas:
+        if logger:
+            logger.info(linha)
+        else:
+            print(linha)

@@ -1,13 +1,13 @@
 from pathlib import Path
 import openpyxl
 
-from .config import PLANILHA_PRONUNCIARIOS, ABA_PLANILHA, COLUNA_PRONUNCIARIO
+from .config import PLANILHA_PRONTUARIOS, ABA_PLANILHA, COLUNA_PRONTUARIO
 
 
-def ler_pronunciarios(
-    caminho: Path = PLANILHA_PRONUNCIARIOS,
+def ler_prontuarios(
+    caminho: Path = PLANILHA_PRONTUARIOS,
     aba: str | None = ABA_PLANILHA,
-    coluna: str = COLUNA_PRONUNCIARIO,
+    coluna: str = COLUNA_PRONTUARIO,
 ) -> list[str]:
     caminho = Path(caminho)
     if not caminho.exists():
@@ -31,7 +31,7 @@ def ler_pronunciarios(
 
     indice_coluna = cabecalho.index(coluna)
 
-    pronunciarios = []
+    prontuarios = []
     cabecalho_encontrado = False
 
     for row in ws.iter_rows(values_only=True):
@@ -43,15 +43,15 @@ def ler_pronunciarios(
 
         valor = row[indice_coluna]
         if valor is not None:
-            pronunciario = str(valor).strip().split('.')[0]
-            if pronunciario:
-                pronunciarios.append(pronunciario)
+            prontuario = str(valor).strip().split('.')[0]
+            if prontuario:
+                prontuarios.append(prontuario)
 
     wb.close()
 
     vistos = set()
     unicos = []
-    for p in pronunciarios:
+    for p in prontuarios:
         if p not in vistos:
             vistos.add(p)
             unicos.append(p)

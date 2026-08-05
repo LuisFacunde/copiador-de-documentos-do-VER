@@ -1,46 +1,65 @@
-# 📋 Script de Processamento de Exames de Pacientes
+# 📋 Processador de Exames de Pacientes — Sistema de Lotes
 
 ## O que faz?
 
-Este script **copia exames de pacientes** com base em critérios específicos:
+Este sistema **copia exames de pacientes** de um diretório de origem para um destino organizado em **lotes de até 2.500 prontuários**, aplicando filtros e mantendo um **histórico em banco de dados local** para evitar reprocessamento.
+
+### Funcionalidades principais
+
+- ✅ **Lotes automáticos** — Processa até 2.500 prontuários por execução
+- ✅ **Histórico SQLite** — Não reprocessa prontuários já copiados
+- ✅ **Log por lote** — Arquivo de log detalhado salvo na pasta do lote
+- ✅ **Subpastas organizadas** — Saída em `Lote N - DD-MM-AAAA`
+- ✅ **CLI com argumentos** — `--force`, `--origem`, `--destino`, `--silencioso`
+
+### Critérios de filtro
 
 - ✅ **Tipos**: Apenas Retinografia (RET) e OCT (Papila)
 - ✅ **Período**: De 01/01/2020 a 30/06/2026
-- ✅ **Critério de 4 meses**: Para cada tipo de exame, copia apenas aqueles que não são mais antigos que 4 meses (120 dias) do exame mais recente
+- ✅ **Critério de 4 meses**: Para cada tipo de exame, copia apenas aqueles dentro de 120 dias do exame mais recente
 
 ---
 
-## 📁 Estrutura de Diretórios
-
-### Entrada (diretório de origem)
+## 📁 Estrutura do Projeto
 
 ```
-exames_origem/
-├── 2324530/
-│   ├── 2324530-7194197-20250219-RETIN-AO-1739989244
-│   ├── 2324530-7194197-20250119-OCT-AO-1739989244
-│   ├── 2324530-7194197-20241119-RETIN-OD-1739989244
-│   └── 2324530-7194197-20231215-OCT-OE-1739989244
-├── 2324531/
-│   ├── 2324531-7194198-20260110-RETIN-AO-1739989245
-│   └── 2324531-7194198-20260210-OCT-AO-1739989245
-└── 2324532/
-    └── ...
+copiador_de_documentos/
+├── processar_exames.py           # Entry point (CLI com argparse)
+├── dados/
+│   ├── planilha_de_testes.xlsx   # Planilha com prontuários
+│   └── historico.db              # Banco SQLite (gerado automaticamente)
+├── src/
+│   ├── __init__.py
+│   ├── config.py                 # Configurações e constantes
+│   ├── copiador.py               # Lógica de cópia de arquivos
+│   ├── filtros.py                # Filtros de tipo, período e janela temporal
+│   ├── historico.py              # Módulo de banco de dados (SQLite)
+│   ├── leitor_planilha.py        # Leitura da planilha Excel
+│   ├── logger.py                 # Módulo de logging por lote
+│   ├── parser.py                 # Parser de nomes de arquivo
+│   └── relatorio.py              # Relatório final formatado
+└── README.md
 ```
 
-### Saída (diretório de destino)
+---
 
-A mesma estrutura será criada com apenas os arquivos que atendem aos critérios:
+## 📁 Estrutura de Saída (Destino)
+
+A saída é organizada em subpastas por lote, facilitando controle e rastreabilidade:
 
 ```
-exames_destino/
-├── 2324530/
-│   ├── 2324530-7194197-20250219-RETIN-AO-1739989244
-│   └── 2324530-7194197-20250119-OCT-AO-1739989244
-├── 2324531/
-│   ├── 2324531-7194198-20260110-RETIN-AO-1739989245
-│   └── 2324531-7194198-20260210-OCT-AO-1739989245
-└── 2324532/
+anexos_exames_copias/
+├── Lote 1 - 05-08-2026/
+│   ├── log_lote_1.txt            # Log detalhado do lote
+│   ├── 2324530/
+│   │   ├── 2324530-xxx-RETIN.pdf
+│   │   └── 2324530-xxx-OCT.pdf
+│   └── 2324531/
+│       └── ...
+├── Lote 2 - 12-08-2026/
+│   ├── log_lote_2.txt
+│   └── ...
+└── Lote 3 - 19-08-2026/
     └── ...
 ```
 
@@ -48,84 +67,202 @@ exames_destino/
 
 ## 🚀 Como Usar
 
-### 1. Prepare o arquivo de prontuários
+### 1. Prepare o ambiente
 
-Crie um arquivo `pronunciarios.txt` com **um prontuário por linha**:
+Certifique-se de ter **Python 3.10+** e o pacote `openpyxl`:
 
-```txt
-2324530
-2324531
-2324532
-2324533
+```bash
+pip install openpyxl
 ```
 
-### 2. Configure os caminhos no script
+### 2. Configure os caminhos
 
-Abra `processar_exames.py` e ajuste:
+Edite `src/config.py` e ajuste:
 
 ```python
-LISTA_PRONUNCIARIOS = 'pronunciarios.txt'              # Seu arquivo
-DIR_EXAMES_ORIGEM = '/caminho/para/exames_origem'    # Diretório com as pastas de prontuários
-DIR_EXAMES_DESTINO = '/caminho/para/exames_destino'  # Onde copiar os arquivos
+PLANILHA_PRONTUARIOS = _BASE / 'dados' / 'sua_planilha.xlsx'
+DIR_EXAMES_ORIGEM = r'\\192.168.4.18\c$\apache24\htdocs\fav_exames\anexo'
+DIR_EXAMES_DESTINO = 'C:/caminho/para/exames_destino'
 ```
 
-**Exemplos de caminhos:**
-
-- **Windows**: `C:/dados/exames_origem`
-- **Linux/Mac**: `/home/user/dados/exames_origem`
-
 ### 3. Execute o script
+
+**Uso básico** (processa até 2.500 prontuários pendentes):
 
 ```bash
 python processar_exames.py
 ```
 
-### 4. Verifique o resultado
+**Reprocessar tudo** (ignora histórico):
 
-O script gera um **relatório detalhado** mostrando:
-- ✓ Quantos prontuários foram processados
-- ✓ Quantos arquivos foram copiados
-- ⊘ Erros e avisos
+```bash
+python processar_exames.py --force
+```
+
+**Especificar diretórios**:
+
+```bash
+python processar_exames.py --origem "D:/exames" --destino "D:/copias"
+```
+
+**Modo silencioso** (suprime detalhes no console, mantém log):
+
+```bash
+python processar_exames.py --silencioso
+```
+
+**Combinando flags**:
+
+```bash
+python processar_exames.py --force --silencioso --destino "D:/copias"
+```
 
 ---
 
-## 📊 Exemplo de Saída
+## ⚙️ Argumentos CLI
+
+| Argumento      | Descrição                                                     | Padrão                  |
+| -------------- | ------------------------------------------------------------- | ----------------------- |
+| `--force`      | Reprocessa prontuários já copiados em lotes anteriores        | `False`                 |
+| `--origem`     | Diretório de origem dos exames                                | Definido em `config.py` |
+| `--destino`    | Diretório de destino das cópias (lotes serão criados dentro)  | Definido em `config.py` |
+| `--silencioso` | Suprime saída detalhada no console (log em arquivo é mantido) | `False`                 |
+
+---
+
+## 📦 Sistema de Lotes
+
+### Como funciona
+
+1. A planilha é lida e os prontuários são extraídos
+2. Prontuários já processados são excluídos (consultando o banco de histórico)
+3. Os primeiros **2.500** prontuários pendentes são selecionados para o lote atual
+4. O número do lote é determinado automaticamente (incremento do último)
+5. Uma subpasta é criada: `Lote {N} - {DD-MM-AAAA}`
+6. Os prontuários são processados e os arquivos copiados para dentro da pasta do lote
+7. Cada cópia é registrada no banco de histórico
+8. Um log completo é salvo na pasta do lote
+9. O relatório final informa quantos prontuários restam pendentes
+
+### Exemplo de fluxo
 
 ```
-📋 Total de prontuários a processar: 3
+Execução 1: Planilha tem 6.000 prontuários
+  → Lote 1: processa 2.500 | pendentes: 3.500
 
-   📅 RET mais recente: 19/02/2025 | Limite de 4 meses: 19/10/2024
-   📅 OCT mais recente: 19/01/2025 | Limite de 4 meses: 19/09/2024
-✓ 2324530/2324530-7194197-20250219-RETIN-AO-1739989244 (RET) - 19/02/2025
-✓ 2324530/2324530-7194197-20250119-OCT-AO-1739989244 (OCT) - 19/01/2025
-      ⊘ 2324530-7194197-20231215-OCT-OE-1739989244 (OCT) - 15/12/2023 (anterior aos 4 meses)
+Execução 2: Mesma planilha
+  → Lote 2: processa 2.500 | pendentes: 1.000
 
-   📅 RET mais recente: 10/01/2026 | Limite de 4 meses: 10/09/2025
-   📅 OCT mais recente: 10/02/2026 | Limite de 4 meses: 10/10/2025
-✓ 2324531/2324531-7194198-20260110-RETIN-AO-1739989245 (RET) - 10/01/2026
-✓ 2324531/2324531-7194198-20260210-OCT-AO-1739989245 (OCT) - 10/02/2026
+Execução 3: Mesma planilha
+  → Lote 3: processa 1.000 | pendentes: 0
+
+Execução 4: Mesma planilha
+  → "Todos os prontuários já foram processados. Use --force para reprocessar."
+```
+
+---
+
+## 🗄️ Banco de Dados (Histórico)
+
+O sistema utiliza **SQLite** (módulo nativo do Python, sem instalação adicional) para manter histórico.
+
+**Localização**: `dados/historico.db`
+
+### Tabelas
+
+#### `lote`
+
+| Coluna              | Tipo    | Descrição                                          |
+| ------------------- | ------- | -------------------------------------------------- |
+| `id`                | INTEGER | Chave primária                                     |
+| `numero`            | INTEGER | Número sequencial do lote                          |
+| `data_envio`        | TEXT    | Data do envio (DD-MM-AAAA)                         |
+| `data_inicio`       | TEXT    | Timestamp de início do processamento               |
+| `data_fim`          | TEXT    | Timestamp de fim do processamento                  |
+| `total_prontuarios` | INTEGER | Prontuários com exames copiados                    |
+| `total_arquivos`    | INTEGER | Total de arquivos copiados                         |
+| `status`            | TEXT    | `em_andamento`, `concluido`, `concluido_com_erros` |
+
+#### `historico_copias`
+
+| Coluna       | Tipo    | Descrição                      |
+| ------------ | ------- | ------------------------------ |
+| `id`         | INTEGER | Chave primária                 |
+| `lote_id`    | INTEGER | FK para tabela `lote`          |
+| `prontuario` | TEXT    | Número do prontuário           |
+| `arquivo`    | TEXT    | Nome do arquivo copiado        |
+| `tipo_exame` | TEXT    | Tipo do exame (RET, OCTPAPILA) |
+| `data_exame` | TEXT    | Data do exame (ISO 8601)       |
+| `data_copia` | TEXT    | Timestamp da cópia             |
+
+---
+
+## 📄 Log por Lote
+
+Cada lote gera um arquivo de log dentro da sua pasta de destino:
+
+```
+Lote 1 - 05-08-2026/
+└── log_lote_1.txt
+```
+
+### Formato do log
+
+```
+[2026-08-05 13:20:00] INFO  | ======================================================================
+[2026-08-05 13:20:00] INFO  | 📦 LOTE 1 — 05-08-2026
+[2026-08-05 13:20:00] INFO  | ======================================================================
+[2026-08-05 13:20:00] INFO  | 📋 Prontuários na planilha: 6000
+[2026-08-05 13:20:00] INFO  | 📋 Prontuários neste lote: 2500
+[2026-08-05 13:20:00] INFO  | 📋 Prontuários pendentes após este lote: 3500
+[2026-08-05 13:20:01] INFO  | [1/2500] Processando prontuário: 2324530
+[2026-08-05 13:20:01] INFO  | ✓ 2324530/2324530-xxx-RETIN.pdf (RET) — 19/02/2025
+[2026-08-05 13:20:01] INFO  | ✓ 2324530/2324530-xxx-OCT.pdf (OCTPAPILA) — 19/01/2025
+...
+```
+
+> O arquivo de log registra **tudo** (nível DEBUG), incluindo detalhes que são omitidos no console.
+
+---
+
+## 📊 Exemplo de Saída (Console)
+
+```
+📋 Total de prontuários na planilha: 6000
+⏭  Prontuários já processados (ignorados): 2500
 
 ======================================================================
-📊 RELATÓRIO FINAL
+📦 LOTE 2 — 05-08-2026
 ======================================================================
-✓ Prontuários com exames válidos: 2
-⊘ Prontuários sem exames válidos: 1
-✓ Arquivos copiados com sucesso: 4
+📋 Prontuários neste lote: 2500
+📋 Prontuários pendentes após este lote: 1000
+
+[1/2500] Processando prontuário: 2324530
+   📅 RET mais recente: 19/02/2025 | Limite de 120 dias: 22/10/2024
+✓ 2324530/2324530-7194197-20250219-RETIN-AO-1739989244.pdf (RET) — 19/02/2025
+...
+
+======================================================================
+📊  RELATÓRIO FINAL
+📦  Lote 2 — 05-08-2026
+======================================================================
+✓  Prontuários com exames copiados : 1847
+⊘  Prontuários sem exames válidos  : 653
+✓  Arquivos PDF copiados           : 4210
+⏭  Arquivos já existentes (pulados) : 0
 ----------------------------------------------------------------------
-⊘ Arquivos com erro de parse: 0
-⊘ Arquivos com tipo inválido (nem RET nem OCT): 0
-⊘ Arquivos fora do período permitido: 1
-⊘ Arquivos fora do critério de 4 meses: 1
-❌ Erros na cópia: 0
+⊘  Arquivos com nome inválido      : 12
+⊘  Arquivos com tipo inválido      : 340
+⊘  Arquivos fora do período        : 89
+⊘  Arquivos fora da janela         : 156
+❌  Erros na cópia                 : 0
+----------------------------------------------------------------------
+📋  Prontuários pendentes (próximo lote): 1000
 ======================================================================
+
+📁 Arquivos salvos em: C:/copias/Lote 2 - 05-08-2026
+📄 Log salvo em: C:/copias/Lote 2 - 05-08-2026/log_lote_2.txt
 ```
-
----
-
-## 🔧 Requisitos
-
-- **Python 3.6+** (qualquer versão recente)
-- Nenhuma biblioteca adicional necessária (usa apenas módulos padrão)
 
 ---
 
@@ -138,15 +275,17 @@ PRONTUARIO-ID-YYYYMMDD-TIPO-OLHO-TIMESTAMP
 ```
 
 **Exemplo:**
+
 ```
 2324530-7194197-20250219-RETIN-AO-1739989244
 ```
 
 **Partes:**
+
 - `2324530` → Prontuário
 - `7194197` → ID (ignorado)
 - `20250219` → Data (19/02/2025)
-- `RETIN` → Tipo (RET = Retinografia, OCT = OCT)
+- `RETIN` → Tipo (RET = Retinografia, OCTPAPILA = OCT Papila)
 - `AO` → Olho (ignorado)
 - `1739989244` → Timestamp (ignorado)
 
@@ -155,63 +294,78 @@ PRONTUARIO-ID-YYYYMMDD-TIPO-OLHO-TIMESTAMP
 ## ⚙️ Critérios de Filtro
 
 ### 1. **Tipo de Exame**
+
 - ✅ `RETIN` (Retinografia) → Cópia como `RET`
-- ✅ `OCT` (Papila) → Cópia como `OCT`
+- ✅ `OCTPAPILA` (OCT Papila) → Cópia como `OCTPAPILA`
 - ❌ Outros tipos são ignorados
 
 ### 2. **Período de Data**
+
 - ✅ De `01/01/2020` a `30/06/2026`
 - ❌ Fora deste período = descartado
 
-### 3. **Critério de 4 Meses**
-Para **cada tipo de exame independentemente** (RET e OCT separados):
+### 3. **Critério de 4 Meses (120 dias)**
+
+Para **cada tipo de exame independentemente** (RET e OCTPAPILA separados):
 
 1. Encontra o exame **mais recente**
 2. Calcula a data limite: `data_mais_recente - 120 dias`
-3. Copia todos os exames que atendem à condição: `data_exame >= data_limite`
+3. Copia todos os exames com `data >= data_limite`
 
-**Exemplo:**
-- OCT mais recente: `19/02/2025`
-- Limite de 4 meses: `19/10/2024`
-- Copia: OCT de 19/10/2024 até 19/02/2025
-- Ignora: OCT anterior a 19/10/2024
+---
+
+## 🔧 Requisitos
+
+- **Python 3.10+**
+- **openpyxl** — Leitura de planilhas Excel (`pip install openpyxl`)
+- **sqlite3** — Módulo nativo do Python (sem instalação)
 
 ---
 
 ## 🐛 Troubleshooting
 
-### "Arquivo de prontuários não encontrado"
-- Verifique se `pronunciarios.txt` está no mesmo diretório do script
-- Ou forneça o caminho completo no script
+### "Planilha não encontrada"
 
-### "Pasta não encontrada"
-- A estrutura de diretórios está correta?
-- O prontuário existe em `DIR_EXAMES_ORIGEM`?
+- Verifique se o caminho em `config.py` está correto
+- Verifique se a planilha existe no diretório `dados/`
 
-### Nenhum arquivo foi copiado
-- Verifique se os nomes dos arquivos seguem o padrão esperado
-- Verifique se os tipos são `RETIN` ou `OCT`
-- Confirme se as datas estão no período permitido
+### "Todos os prontuários já foram processados"
 
-### Permissão negada
-- Verifique se tem permissão de leitura em `DIR_EXAMES_ORIGEM`
-- Verifique se tem permissão de escrita em `DIR_EXAMES_DESTINO`
+- Use `--force` para reprocessar: `python processar_exames.py --force`
+
+### "Pasta não encontrada" para um prontuário
+
+- A pasta do prontuário não existe no diretório de origem
+- Verifique se o nome na planilha corresponde ao nome da pasta
+
+### Problemas de permissão
+
+- Verifique permissão de leitura em `DIR_EXAMES_ORIGEM`
+- Verifique permissão de escrita em `DIR_EXAMES_DESTINO`
+
+### Banco de dados corrompido
+
+- Delete `dados/historico.db` e execute novamente (o banco será recriado)
+- ⚠️ Isso resetará todo o histórico de lotes
 
 ---
 
 ## 💡 Dicas
 
-1. **Teste com poucos prontuários** antes de processar muitos
-2. **Ative verbose=True** (padrão) para ver o que está acontecendo
-3. **Guarde o relatório final** para auditoria
-4. **Faça backup** dos dados originais antes de usar
+1. **Teste com `--force`** se precisar reprocessar prontuários já copiados
+2. **Use `--silencioso`** para execuções em produção (o log é sempre salvo)
+3. **Consulte o banco** com qualquer cliente SQLite para auditorias
+4. **Guarde as pastas de lote** — cada uma contém seu log para rastreabilidade
+5. **Faça backup** dos dados originais antes de usar
 
 ---
 
 ## 📞 Suporte
 
 Se encontrar problemas, verifique:
-- ✅ Arquivo `pronunciarios.txt` existe?
-- ✅ Diretórios de origem/destino existem?
+
+- ✅ Planilha existe em `dados/`?
+- ✅ Diretórios de origem/destino existem e são acessíveis?
 - ✅ Formato do nome do arquivo está correto?
-- ✅ Tem permissões suficientes?
+- ✅ Python 3.10+ instalado?
+- ✅ Pacote `openpyxl` instalado?
