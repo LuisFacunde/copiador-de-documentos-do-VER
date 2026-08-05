@@ -16,7 +16,7 @@ def dentro_do_periodo(data: datetime) -> bool:
 
 
 def agrupar_por_tipo(arquivos_pasta: list[Path], verbose: bool = False) -> dict:
-    resultado = {'RET': [], 'OCT': [], '_invalidos': 0, '_tipo_invalido': 0, '_fora_periodo': 0}
+    resultado = {'RET': [], 'OCTPAPILA': [], '_invalidos': 0, '_tipo_invalido': 0, '_fora_periodo': 0}
 
     for arquivo in arquivos_pasta:
         if not arquivo.is_file():
@@ -34,7 +34,7 @@ def agrupar_por_tipo(arquivos_pasta: list[Path], verbose: bool = False) -> dict:
 
         if tipo is None:
             if verbose:
-                print(f"   ⊘ {arquivo.name} — tipo de exame não é RET nem OCT")
+                print(f"   ⊘ {arquivo.name} — tipo de exame não é RET nem OCTPAPILA")
             resultado['_tipo_invalido'] += 1
             continue
 

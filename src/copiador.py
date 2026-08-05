@@ -41,7 +41,7 @@ def processar_pronunciario(
     stats['fora_periodo'] += agrupados['_fora_periodo']
 
     para_copiar = []
-    for tipo_exame in ('RET', 'OCT'):
+    for tipo_exame in ('RET', 'OCTPAPILA'):
         validos, descartados = aplicar_janela_temporal(agrupados[tipo_exame], verbose=verbose)
         para_copiar.extend(validos)
         stats['fora_janela'] += descartados

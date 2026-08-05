@@ -1,5 +1,7 @@
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+reconfigure_stdout = getattr(sys.stdout, 'reconfigure', None)
+if callable(reconfigure_stdout):
+    reconfigure_stdout(encoding='utf-8')
 
 from pathlib import Path
 

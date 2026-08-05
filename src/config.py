@@ -18,7 +18,7 @@ DATA_MAX = datetime(2026, 6, 30)
 
 MAPA_TIPOS = {
     'RETIN': 'RET',
-    'OCT':   'OCT',
+    'OCTPAPILA': 'OCTPAPILA',
 }
 
 JANELA_DIAS = 120
