@@ -3,7 +3,7 @@ from pathlib import Path
 
 _BASE = Path(__file__).resolve().parent.parent
 
-PLANILHA_PRONTUARIOS = _BASE / 'dados' / 'planilha' / 'Pesquisa Exames RET com Oct 4 meses antes e depois.xlsx'
+PLANILHA_PRONTUARIOS = _BASE / 'dados' / 'planilhas' / 'Pesquisa Exames RET com Oct 4 meses antes e depois.xlsx'
 
 ABA_PLANILHA = 'Select fav_pesquisa'
 
