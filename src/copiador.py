@@ -20,7 +20,7 @@ def processar_prontuario(
         'fora_periodo': 0,
         'fora_janela': 0,
         'erros': 0,
-        'sem_exames': False,
+        'motivo_exclusao': None,
         'arquivos_copiados': [],
     }
 
@@ -33,12 +33,13 @@ def processar_prontuario(
     pasta_origem = Path(dir_origem) / prontuario
     if not pasta_origem.exists():
         _log('warning', f"⚠️  Prontuário {prontuario}: pasta não encontrada em {dir_origem}")
-        stats['sem_exames'] = True
+        stats['motivo_exclusao'] = 'pasta_nao_encontrada'
         return stats
 
     try:
+        arquivos_na_pasta = list(pasta_origem.iterdir())
         agrupados = agrupar_por_tipo(
-            list(pasta_origem.iterdir()),
+            arquivos_na_pasta,
             logger=logger,
             verbose=verbose,
         )
@@ -51,6 +52,14 @@ def processar_prontuario(
     stats['tipo_invalido'] += agrupados['_tipo_invalido']
     stats['fora_periodo']  += agrupados['_fora_periodo']
 
+    total_arquivos_analisados = (
+        len(agrupados['RET'])
+        + len(agrupados['OCTPAPILA'])
+        + agrupados['_invalidos']
+        + agrupados['_tipo_invalido']
+        + agrupados['_fora_periodo']
+    )
+
     para_copiar = []
     for tipo_exame in ('RET', 'OCTPAPILA'):
         validos, descartados = aplicar_janela_temporal(
@@ -62,8 +71,18 @@ def processar_prontuario(
         stats['fora_janela'] += descartados
 
     if not para_copiar:
-        _log('info', f"⊘ Prontuário {prontuario}: nenhum exame válido encontrado")
-        stats['sem_exames'] = True
+        if total_arquivos_analisados == 0:
+            _log('info',
+                f"⊘ Prontuário {prontuario}: pasta encontrada, "
+                f"mas sem arquivos de exame"
+            )
+            stats['motivo_exclusao'] = 'pasta_sem_arquivos'
+        else:
+            _log('info',
+                f"⊘ Prontuário {prontuario}: exames encontrados, "
+                f"mas nenhum atende aos critérios de filtro"
+            )
+            stats['motivo_exclusao'] = 'exames_sem_correspondencia'
         return stats
 
     pasta_destino = Path(dir_destino) / prontuario

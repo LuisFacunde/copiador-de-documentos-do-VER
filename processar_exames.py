@@ -28,10 +28,8 @@ def processar_exames(
     forcar: bool = False,
     verbose: bool = True,
 ) -> None:
-    # ── Inicializar banco de histórico ────────────────────────────────
     conn = inicializar_banco()
 
-    # ── Ler prontuários da planilha ───────────────────────────────────
     try:
         todos_prontuarios = ler_prontuarios()
     except (FileNotFoundError, ValueError) as exc:
@@ -42,7 +40,6 @@ def processar_exames(
     total_planilha = len(todos_prontuarios)
     print(f"📋 Total de prontuários na planilha: {total_planilha}")
 
-    # ── Filtrar prontuários já processados ────────────────────────────
     if forcar:
         print("⚠️  Modo --force ativo: reprocessando todos os prontuários")
         prontuarios_pendentes = todos_prontuarios
@@ -62,21 +59,21 @@ def processar_exames(
         conn.close()
         return
 
-    # ── Aplicar limite do lote ────────────────────────────────────────
+    # Aplicar limite do lote
     prontuarios_lote = prontuarios_pendentes[:LIMITE_PACIENTES_LOTE]
     restantes = total_pendentes - len(prontuarios_lote)
 
-    # ── Criar lote ────────────────────────────────────────────────────
+    # Criar lote
     numero_lote = obter_proximo_numero_lote(conn)
     data_envio = datetime.now().strftime('%d-%m-%Y')
     nome_lote = f"Lote {numero_lote} - {data_envio}"
     lote_id = criar_lote(conn, numero_lote, data_envio)
 
-    # ── Criar pasta do lote ───────────────────────────────────────────
+    # Criar pasta do lote
     pasta_lote = Path(dir_destino) / nome_lote
     pasta_lote.mkdir(parents=True, exist_ok=True)
 
-    # ── Configurar logger (dentro da pasta do lote) ───────────────────
+    # Configurar logger (dentro da pasta do lote)
     caminho_log = pasta_lote / f"log_lote_{numero_lote}.txt"
     logger = configurar_logger(caminho_log, numero_lote)
 
@@ -90,10 +87,12 @@ def processar_exames(
         logger.info("⚠️  Modo --force ativo")
     logger.info("")
 
-    # ── Processar prontuários ─────────────────────────────────────────
+    # Processar prontuários
     estatisticas = {
         'pacientes_processados': 0,
-        'pacientes_sem_exames': 0,
+        'pasta_nao_encontrada': 0,
+        'pasta_sem_arquivos': 0,
+        'exames_sem_correspondencia': 0,
         'arquivos_copiados': 0,
         'arquivos_pulados': 0,
         'arquivos_invalidos': 0,
@@ -116,8 +115,9 @@ def processar_exames(
             verbose=verbose,
         )
 
-        if resultado['sem_exames']:
-            estatisticas['pacientes_sem_exames'] += 1
+        motivo = resultado['motivo_exclusao']
+        if motivo:
+            estatisticas[motivo] += 1
         else:
             estatisticas['pacientes_processados'] += 1
 
@@ -140,7 +140,7 @@ def processar_exames(
                 data_exame=arq.get('data'),
             )
 
-    # ── Finalizar lote ────────────────────────────────────────────────
+    # Finalizar lote
     status = (
         'concluido' if estatisticas['erros'] == 0
         else 'concluido_com_erros'
@@ -153,7 +153,7 @@ def processar_exames(
         status=status,
     )
 
-    # ── Relatório ─────────────────────────────────────────────────────
+    # Relatório
     info_lote = {
         'numero': numero_lote,
         'data_envio': data_envio,
