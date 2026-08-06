@@ -16,6 +16,7 @@ from src.historico import (
     obter_proximo_numero_lote,
     criar_lote,
     registrar_copia,
+    registrar_descarte,
     finalizar_lote,
     listar_prontuarios_processados,
 )
@@ -59,9 +60,7 @@ def processar_exames(
         conn.close()
         return
 
-    # Aplicar limite do lote
-    prontuarios_lote = prontuarios_pendentes[:LIMITE_PACIENTES_LOTE]
-    restantes = total_pendentes - len(prontuarios_lote)
+    meta_lote = LIMITE_PACIENTES_LOTE
 
     # Criar lote
     numero_lote = obter_proximo_numero_lote(conn)
@@ -81,8 +80,8 @@ def processar_exames(
     logger.info(f"  📦 LOTE {numero_lote} - {data_envio}")
     logger.info("=" * 70)
     logger.info(f"  📋 Prontuários na planilha: {total_planilha}")
-    logger.info(f"  📋 Prontuários neste lote: {len(prontuarios_lote)}")
-    logger.info(f"  📋 Prontuários pendentes após este lote: {restantes}")
+    logger.info(f"  📋 Prontuários pendentes: {total_pendentes}")
+    logger.info(f"  🎯 Meta de pacientes copiados neste lote: {meta_lote}")
     if forcar:
         logger.info("  ⚠️  Modo --force ativo")
     logger.info("")
@@ -102,13 +101,19 @@ def processar_exames(
         'erros': 0,
     }
 
-    for i, prontuario in enumerate(prontuarios_lote, 1):
+    copiados_sucesso = 0
+    prontuarios_analisados = 0
+
+    for prontuario in prontuarios_pendentes:
+        prontuarios_analisados += 1
+        indice_exibicao = min(copiados_sucesso + 1, meta_lote)
+
         resultado = processar_prontuario(
             prontuario=prontuario,
             dirs_origem=dirs_origem,
             dir_destino=str(pasta_lote),
-            indice=i,
-            total=len(prontuarios_lote),
+            indice=indice_exibicao,
+            total=meta_lote,
             logger=logger,
             verbose=verbose,
         )
@@ -116,8 +121,24 @@ def processar_exames(
         motivo = resultado['motivo_exclusao']
         if motivo:
             estatisticas[motivo] += 1
+            registrar_descarte(
+                conn=conn,
+                lote_id=lote_id,
+                prontuario=prontuario,
+                motivo=motivo,
+            )
         else:
+            copiados_sucesso += 1
             estatisticas['pacientes_processados'] += 1
+            for arq in resultado.get('arquivos_copiados', []):
+                registrar_copia(
+                    conn=conn,
+                    lote_id=lote_id,
+                    prontuario=prontuario,
+                    arquivo=arq['nome'],
+                    tipo_exame=arq.get('tipo'),
+                    data_exame=arq.get('data'),
+                )
 
         estatisticas['arquivos_copiados']      += resultado['copiados']
         estatisticas['arquivos_pulados']       += resultado['pulados']
@@ -127,16 +148,10 @@ def processar_exames(
         estatisticas['arquivos_fora_janela']   += resultado['fora_janela']
         estatisticas['erros']                  += resultado['erros']
 
-        # Registrar arquivos copiados no histórico
-        for arq in resultado.get('arquivos_copiados', []):
-            registrar_copia(
-                conn=conn,
-                lote_id=lote_id,
-                prontuario=prontuario,
-                arquivo=arq['nome'],
-                tipo_exame=arq.get('tipo'),
-                data_exame=arq.get('data'),
-            )
+        if copiados_sucesso >= meta_lote:
+            break
+
+    restantes = total_pendentes - prontuarios_analisados
 
     # Finalizar lote
     status = (
