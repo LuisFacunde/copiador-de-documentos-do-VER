@@ -38,7 +38,6 @@ def processar_prontuario(
     def _resumo(emoji: str, descricao: str) -> None:
         _log('info', f"{prefixo} Prontuário {prontuario} {emoji} {descricao}")
 
-    # Procurar a pasta do prontuário em cada diretório de origem
     pasta_origem = None
     for dir_orig in dirs_origem:
         candidata = Path(dir_orig) / prontuario
@@ -75,15 +74,22 @@ def processar_prontuario(
         + agrupados['_fora_periodo']
     )
 
-    para_copiar = []
-    for tipo_exame in ('RET', 'OCTPAPILA'):
-        validos, descartados = aplicar_janela_temporal(
-            agrupados[tipo_exame],
-            logger=logger,
-            verbose=verbose,
-        )
-        para_copiar.extend(validos)
-        stats['fora_janela'] += descartados
+    validos_ret, descartados_ret = aplicar_janela_temporal(
+        agrupados['RET'],
+        logger=logger,
+        verbose=verbose,
+    )
+    validos_oct, descartados_oct = aplicar_janela_temporal(
+        agrupados['OCTPAPILA'],
+        logger=logger,
+        verbose=verbose,
+    )
+    stats['fora_janela'] += (descartados_ret + descartados_oct)
+
+    if validos_ret and validos_oct:
+        para_copiar = validos_ret + validos_oct
+    else:
+        para_copiar = []
 
     if not para_copiar:
         if total_arquivos_analisados == 0:
@@ -91,6 +97,13 @@ def processar_prontuario(
             stats['motivo_exclusao'] = 'pasta_sem_arquivos'
         else:
             motivos = []
+            if not validos_ret and not validos_oct:
+                motivos.append("sem exames RET e OCTPAPILA válidos")
+            elif not validos_ret:
+                motivos.append("sem exame RET válido")
+            elif not validos_oct:
+                motivos.append("sem exame OCTPAPILA válido")
+
             if agrupados['_fora_periodo']:
                 motivos.append(f"{agrupados['_fora_periodo']} fora do período")
             if stats['fora_janela']:
@@ -132,7 +145,6 @@ def processar_prontuario(
             _log('debug', f"  ❌ {prontuario}/{item['nome']}: {exc}")
             stats['erros'] += 1
 
-    # Montar linha de resumo INFO
     partes = []
     if stats['copiados']:
         tipos = Counter(a['tipo'] for a in stats['arquivos_copiados'])
