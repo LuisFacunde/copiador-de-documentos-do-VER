@@ -33,15 +33,15 @@ def processar_exames(
     try:
         todos_prontuarios = ler_prontuarios()
     except (FileNotFoundError, ValueError) as exc:
-        print(f"❌ {exc}")
+        print(f"  ❌ {exc}")
         conn.close()
         return
 
     total_planilha = len(todos_prontuarios)
-    print(f"📋 Total de prontuários na planilha: {total_planilha}")
+    print(f"  📋 Total de prontuários na planilha: {total_planilha}")
 
     if forcar:
-        print("⚠️  Modo --force ativo: reprocessando todos os prontuários")
+        print("  ⚠️  Modo --force ativo: reprocessando todos os prontuários")
         prontuarios_pendentes = todos_prontuarios
     else:
         ja_processados = listar_prontuarios_processados(conn)
@@ -50,12 +50,12 @@ def processar_exames(
         ]
         excluidos = total_planilha - len(prontuarios_pendentes)
         if excluidos > 0:
-            print(f"⏭  Prontuários já processados (ignorados): {excluidos}")
+            print(f"  ⏭️ Prontuários já processados (ignorados): {excluidos}")
 
     total_pendentes = len(prontuarios_pendentes)
     if total_pendentes == 0:
-        print("✅ Todos os prontuários já foram processados em lotes anteriores.")
-        print("   Use --force para reprocessar.")
+        print("  ✅ Todos os prontuários já foram processados em lotes anteriores.")
+        print("     Use --force para reprocessar.")
         conn.close()
         return
 
@@ -78,13 +78,13 @@ def processar_exames(
     logger = configurar_logger(caminho_log, numero_lote)
 
     logger.info("=" * 70)
-    logger.info(f"📦 LOTE {numero_lote} — {data_envio}")
+    logger.info(f"  📦 LOTE {numero_lote} - {data_envio}")
     logger.info("=" * 70)
-    logger.info(f"📋 Prontuários na planilha: {total_planilha}")
-    logger.info(f"📋 Prontuários neste lote: {len(prontuarios_lote)}")
-    logger.info(f"📋 Prontuários pendentes após este lote: {restantes}")
+    logger.info(f"  📋 Prontuários na planilha: {total_planilha}")
+    logger.info(f"  📋 Prontuários neste lote: {len(prontuarios_lote)}")
+    logger.info(f"  📋 Prontuários pendentes após este lote: {restantes}")
     if forcar:
-        logger.info("⚠️  Modo --force ativo")
+        logger.info("  ⚠️  Modo --force ativo")
     logger.info("")
 
     # Processar prontuários
@@ -103,14 +103,12 @@ def processar_exames(
     }
 
     for i, prontuario in enumerate(prontuarios_lote, 1):
-        logger.info(
-            f"[{i}/{len(prontuarios_lote)}] Processando prontuário: {prontuario}"
-        )
-
         resultado = processar_prontuario(
             prontuario=prontuario,
             dir_origem=dir_origem,
             dir_destino=str(pasta_lote),
+            indice=i,
+            total=len(prontuarios_lote),
             logger=logger,
             verbose=verbose,
         )
@@ -161,8 +159,8 @@ def processar_exames(
     }
     imprimir_relatorio(estatisticas, info_lote=info_lote, logger=logger)
 
-    logger.info(f"\n📁 Arquivos salvos em: {pasta_lote}")
-    logger.info(f"📄 Log salvo em: {caminho_log}")
+    logger.info(f"\n  📁 Arquivos salvos em: {pasta_lote}")
+    logger.info(f"  📁 Log salvo em: {caminho_log}")
 
     conn.close()
 

@@ -1,5 +1,6 @@
 import logging
 import shutil
+from collections import Counter
 from pathlib import Path
 
 from .filtros import agrupar_por_tipo, aplicar_janela_temporal
@@ -9,6 +10,8 @@ def processar_prontuario(
     prontuario: str,
     dir_origem: str | Path,
     dir_destino: str | Path,
+    indice: int = 0,
+    total: int = 0,
     logger: logging.Logger | None = None,
     verbose: bool = True,
 ) -> dict:
@@ -24,15 +27,20 @@ def processar_prontuario(
         'arquivos_copiados': [],
     }
 
+    prefixo = f"[{indice}/{total}]" if total else ""
+
     def _log(nivel: str, msg: str) -> None:
         if logger:
             getattr(logger, nivel)(msg)
         elif verbose:
             print(msg)
 
+    def _resumo(emoji: str, descricao: str) -> None:
+        _log('info', f"{prefixo} Prontuário {prontuario} {emoji} {descricao}")
+
     pasta_origem = Path(dir_origem) / prontuario
     if not pasta_origem.exists():
-        _log('warning', f"⚠️  Prontuário {prontuario}: pasta não encontrada em {dir_origem}")
+        _resumo('⚠️', ' Pasta não encontrada')
         stats['motivo_exclusao'] = 'pasta_nao_encontrada'
         return stats
 
@@ -44,7 +52,7 @@ def processar_prontuario(
             verbose=verbose,
         )
     except Exception as exc:
-        _log('error', f"❌ Erro ao listar {prontuario}: {exc}")
+        _resumo('❌', f'Erro ao acessar pasta: {exc}')
         stats['erros'] += 1
         return stats
 
@@ -72,16 +80,20 @@ def processar_prontuario(
 
     if not para_copiar:
         if total_arquivos_analisados == 0:
-            _log('info',
-                f"⊘ Prontuário {prontuario}: pasta encontrada, "
-                f"mas sem arquivos de exame"
-            )
+            _resumo('📭', 'Sem arquivos de exame na pasta')
             stats['motivo_exclusao'] = 'pasta_sem_arquivos'
         else:
-            _log('info',
-                f"⊘ Prontuário {prontuario}: exames encontrados, "
-                f"mas nenhum atende aos critérios de filtro"
-            )
+            motivos = []
+            if agrupados['_fora_periodo']:
+                motivos.append(f"{agrupados['_fora_periodo']} fora do período")
+            if stats['fora_janela']:
+                motivos.append(f"{stats['fora_janela']} fora da janela")
+            if agrupados['_tipo_invalido']:
+                motivos.append(f"{agrupados['_tipo_invalido']} tipo inválido")
+            if agrupados['_invalidos']:
+                motivos.append(f"{agrupados['_invalidos']} nome inválido")
+            detalhe = f" ({', '.join(motivos)})" if motivos else ""
+            _resumo('📭', f'Nenhum exame atende aos filtros{detalhe}')
             stats['motivo_exclusao'] = 'exames_sem_correspondencia'
         return stats
 
@@ -91,17 +103,17 @@ def processar_prontuario(
     for item in para_copiar:
         arquivo_destino = pasta_destino / item['nome']
         if arquivo_destino.exists():
-            _log('info',
-                f"⏭ {prontuario}/{item['nome']} "
-                f"({item['tipo']}) — já copiado"
+            _log('debug',
+                f"  ⏭️  {prontuario}/{item['nome']} "
+                f"({item['tipo']}) - já copiado"
             )
             stats['pulados'] += 1
             continue
         try:
             shutil.copy2(item['path'], arquivo_destino)
-            _log('info',
-                f"✓ {prontuario}/{item['nome']} "
-                f"({item['tipo']}) — {item['data'].strftime('%d/%m/%Y')}"
+            _log('debug',
+                f"  ✅ {prontuario}/{item['nome']} "
+                f"({item['tipo']}) - {item['data'].strftime('%d/%m/%Y')}"
             )
             stats['copiados'] += 1
             stats['arquivos_copiados'].append({
@@ -110,7 +122,23 @@ def processar_prontuario(
                 'data': item['data'].isoformat() if item.get('data') else None,
             })
         except Exception as exc:
-            _log('error', f"❌ Erro ao copiar {prontuario}/{item['nome']}: {exc}")
+            _log('debug', f"  ❌ {prontuario}/{item['nome']}: {exc}")
             stats['erros'] += 1
+
+    # Montar linha de resumo INFO
+    partes = []
+    if stats['copiados']:
+        tipos = Counter(a['tipo'] for a in stats['arquivos_copiados'])
+        detalhe_tipos = ', '.join(f"{v} {k}" for k, v in tipos.items())
+        partes.append(f"{stats['copiados']} copiado(s) ({detalhe_tipos})")
+    if stats['pulados']:
+        partes.append(f"{stats['pulados']} já existente(s)")
+    if stats['erros']:
+        partes.append(f"{stats['erros']} erro(s)")
+
+    emoji = '✅' if stats['copiados'] else '⏭️'
+    if stats['erros']:
+        emoji = '❌'
+    _resumo(emoji, ' | '.join(partes))
 
     return stats

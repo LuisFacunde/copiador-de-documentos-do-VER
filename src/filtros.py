@@ -41,19 +41,19 @@ def agrupar_por_tipo(
         data, prontuario, tipo = extrair_info_arquivo(arquivo.name)
 
         if data is None:
-            _log('debug', f"   ⊘ {arquivo.name} — não foi possível extrair data")
+            _log('debug', f"    📭 {arquivo.name} - não foi possível extrair data")
             resultado['_invalidos'] += 1
             continue
 
         if tipo is None:
-            _log('debug', f"   ⊘ {arquivo.name} — tipo de exame não é RET nem OCTPAPILA")
+            _log('debug', f"    📭 {arquivo.name} - tipo de exame não é RET nem OCTPAPILA")
             resultado['_tipo_invalido'] += 1
             continue
 
         if not dentro_do_periodo(data):
             _log('debug',
-                f"   ⊘ {arquivo.name} — fora do período "
-                f"({DATA_MIN.strftime('%d/%m/%Y')}–{DATA_MAX.strftime('%d/%m/%Y')})"
+                f"    📭 {arquivo.name} - fora do período "
+                f"({DATA_MIN.strftime('%d/%m/%Y')} a {DATA_MAX.strftime('%d/%m/%Y')})"
             )
             resultado['_fora_periodo'] += 1
             continue
@@ -86,8 +86,8 @@ def aplicar_janela_temporal(
     mais_recente = ordenados[0]
     data_limite = mais_recente['data'] - timedelta(days=JANELA_DIAS)
 
-    _log('info',
-        f"   📅 {mais_recente['tipo']} mais recente: "
+    _log('debug',
+        f"    📅 {mais_recente['tipo']} mais recente: "
         f"{mais_recente['data'].strftime('%d/%m/%Y')} | "
         f"Limite de {JANELA_DIAS} dias: {data_limite.strftime('%d/%m/%Y')}"
     )
@@ -100,7 +100,7 @@ def aplicar_janela_temporal(
             para_copiar.append(exame)
         else:
             _log('debug',
-                f"      ⊘ {exame['nome']} ({exame['tipo']}) — "
+                f"      📭 {exame['nome']} ({exame['tipo']}) - "
                 f"{exame['data'].strftime('%d/%m/%Y')} "
                 f"(anterior aos {JANELA_DIAS} dias)"
             )

@@ -17,7 +17,7 @@ def configurar_logger(caminho_log: Path, numero_lote: int) -> logging.Logger:
     caminho_log = Path(caminho_log)
     caminho_log.parent.mkdir(parents=True, exist_ok=True)
     fh = logging.FileHandler(str(caminho_log), encoding='utf-8')
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(logging.INFO)
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
