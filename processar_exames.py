@@ -7,7 +7,7 @@ reconfigure_stdout = getattr(sys.stdout, 'reconfigure', None)
 if callable(reconfigure_stdout):
     reconfigure_stdout(encoding='utf-8')
 
-from src.config import DIR_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE
+from src.config import DIRS_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE
 from src.leitor_planilha import ler_prontuarios
 from src.copiador import processar_prontuario
 from src.relatorio import imprimir_relatorio
@@ -23,7 +23,7 @@ from src.logger import configurar_logger
 
 
 def processar_exames(
-    dir_origem: str = DIR_EXAMES_ORIGEM,
+    dirs_origem: list[str] = DIRS_EXAMES_ORIGEM,
     dir_destino: str = DIR_EXAMES_DESTINO,
     forcar: bool = False,
     verbose: bool = True,
@@ -105,7 +105,7 @@ def processar_exames(
     for i, prontuario in enumerate(prontuarios_lote, 1):
         resultado = processar_prontuario(
             prontuario=prontuario,
-            dir_origem=dir_origem,
+            dirs_origem=dirs_origem,
             dir_destino=str(pasta_lote),
             indice=i,
             total=len(prontuarios_lote),
@@ -178,8 +178,9 @@ def main():
     parser.add_argument(
         '--origem',
         type=str,
-        default=DIR_EXAMES_ORIGEM,
-        help=f'Diretório de origem dos exames (padrão: {DIR_EXAMES_ORIGEM})',
+        nargs='+',
+        default=DIRS_EXAMES_ORIGEM,
+        help=f'Diretório(s) de origem dos exames (padrão: {DIRS_EXAMES_ORIGEM})',
     )
     parser.add_argument(
         '--destino',
@@ -197,7 +198,7 @@ def main():
     args = parser.parse_args()
 
     processar_exames(
-        dir_origem=args.origem,
+        dirs_origem=args.origem,
         dir_destino=args.destino,
         forcar=args.force,
         verbose=not args.silencioso,

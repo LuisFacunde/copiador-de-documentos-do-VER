@@ -9,7 +9,10 @@ ABA_PLANILHA = 'Select fav_pesquisa'
 
 COLUNA_PRONTUARIO = 'PRONT'
 
-DIR_EXAMES_ORIGEM = r'\\192.168.4.18\c$\apache24\htdocs\fav_exames\anexo'
+DIRS_EXAMES_ORIGEM = [
+    r'\\192.168.4.18\c$\apache24\htdocs\fav_exames\anexo',
+    r'\\192.168.4.52\c$\exames',
+]
 
 DIR_EXAMES_DESTINO = 'C:/Users/luis.silva/Desktop/anexos_exames_copias'
 

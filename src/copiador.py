@@ -8,7 +8,7 @@ from .filtros import agrupar_por_tipo, aplicar_janela_temporal
 
 def processar_prontuario(
     prontuario: str,
-    dir_origem: str | Path,
+    dirs_origem: list[str | Path],
     dir_destino: str | Path,
     indice: int = 0,
     total: int = 0,
@@ -38,8 +38,15 @@ def processar_prontuario(
     def _resumo(emoji: str, descricao: str) -> None:
         _log('info', f"{prefixo} Prontuário {prontuario} {emoji} {descricao}")
 
-    pasta_origem = Path(dir_origem) / prontuario
-    if not pasta_origem.exists():
+    # Procurar a pasta do prontuário em cada diretório de origem
+    pasta_origem = None
+    for dir_orig in dirs_origem:
+        candidata = Path(dir_orig) / prontuario
+        if candidata.exists():
+            pasta_origem = candidata
+            break
+
+    if pasta_origem is None:
         _resumo('⚠️', ' Pasta não encontrada')
         stats['motivo_exclusao'] = 'pasta_nao_encontrada'
         return stats
