@@ -3,7 +3,7 @@ import shutil
 from collections import Counter
 from pathlib import Path
 
-from .filtros import agrupar_por_tipo, aplicar_janela_temporal
+from .filtros import agrupar_por_tipo, avaliar_criterio_paciente
 
 
 def processar_prontuario(
@@ -74,36 +74,22 @@ def processar_prontuario(
         + agrupados['_fora_periodo']
     )
 
-    validos_ret, descartados_ret = aplicar_janela_temporal(
-        agrupados['RET'],
+    aprovado, para_copiar, motivos_reprovacao = avaliar_criterio_paciente(
+        ret_lista=agrupados['RET'],
+        oct_lista=agrupados['OCTPAPILA'],
         logger=logger,
         verbose=verbose,
     )
-    validos_oct, descartados_oct = aplicar_janela_temporal(
-        agrupados['OCTPAPILA'],
-        logger=logger,
-        verbose=verbose,
-    )
-    stats['fora_janela'] += (descartados_ret + descartados_oct)
 
-    if validos_ret and validos_oct:
-        para_copiar = validos_ret + validos_oct
-    else:
-        para_copiar = []
-
-    if not para_copiar:
+    if not aprovado or not para_copiar:
         if total_arquivos_analisados == 0:
             _resumo('📭', 'Sem arquivos de exame na pasta')
             stats['motivo_exclusao'] = 'pasta_sem_arquivos'
         else:
-            motivos = []
-            if not validos_ret and not validos_oct:
-                motivos.append("sem exames RET e OCTPAPILA válidos")
-            elif not validos_ret:
-                motivos.append("sem exame RET válido")
-            elif not validos_oct:
-                motivos.append("sem exame OCTPAPILA válido")
+            if agrupados['RET'] and agrupados['OCTPAPILA']:
+                stats['fora_janela'] += (len(agrupados['RET']) + len(agrupados['OCTPAPILA']))
 
+            motivos = list(motivos_reprovacao)
             if agrupados['_fora_periodo']:
                 motivos.append(f"{agrupados['_fora_periodo']} fora do período")
             if stats['fora_janela']:
@@ -116,6 +102,7 @@ def processar_prontuario(
             _resumo('📭', f'Nenhum exame atende aos filtros{detalhe}')
             stats['motivo_exclusao'] = 'exames_sem_correspondencia'
         return stats
+
 
     pasta_destino = Path(dir_destino) / prontuario
     pasta_destino.mkdir(parents=True, exist_ok=True)

@@ -16,7 +16,8 @@ Este sistema **copia exames de pacientes** de um diretório de origem para um de
 
 - ✅ **Tipos**: Apenas Retinografia (RET) e OCT (Papila)
 - ✅ **Período**: De 01/01/2020 a 30/06/2026
-- ✅ **Critério de 4 meses**: Para cada tipo de exame, copia apenas aqueles dentro de 120 dias do exame mais recente
+- ✅ **Critério de Inclusão (±4 meses)**: O paciente deve possuir pelo menos um exame RET e um exame OCTPAPILA realizados no intervalo de -120 a +120 dias entre si.
+- ✅ **Cópia Integral**: Atendido o critério de inclusão, todos os exames RET e OCTPAPILA do paciente no período (2020 a 2026) são copiados.
 
 ---
 

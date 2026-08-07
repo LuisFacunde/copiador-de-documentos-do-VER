@@ -68,42 +68,54 @@ def agrupar_por_tipo(
     return resultado
 
 
-def aplicar_janela_temporal(
-    exames: list[dict],
+def avaliar_criterio_paciente(
+    ret_lista: list[dict],
+    oct_lista: list[dict],
+    janela_dias: int = JANELA_DIAS,
     logger: logging.Logger | None = None,
     verbose: bool = False,
-) -> tuple[list, int]:
-    if not exames:
-        return [], 0
-
+) -> tuple[bool, list[dict], list[str]]:
     def _log(nivel: str, msg: str) -> None:
         if logger:
             getattr(logger, nivel)(msg)
         elif verbose:
             print(msg)
 
-    ordenados = sorted(exames, key=lambda x: x['data'], reverse=True)
-    mais_recente = ordenados[0]
-    data_limite = mais_recente['data'] - timedelta(days=JANELA_DIAS)
+    if not ret_lista and not oct_lista:
+        return False, [], ["sem exames RET e OCTPAPILA válidos no período"]
 
-    _log('debug',
-        f"    📅 {mais_recente['tipo']} mais recente: "
-        f"{mais_recente['data'].strftime('%d/%m/%Y')} | "
-        f"Limite de {JANELA_DIAS} dias: {data_limite.strftime('%d/%m/%Y')}"
-    )
+    if not ret_lista:
+        return False, [], ["sem exame RET válido no período"]
 
-    para_copiar = []
-    descartados = 0
+    if not oct_lista:
+        return False, [], ["sem exame OCTPAPILA válido no período"]
 
-    for exame in ordenados:
-        if exame['data'] >= data_limite:
-            para_copiar.append(exame)
-        else:
+    pares_correspondentes = []
+    for r in ret_lista:
+        for o in oct_lista:
+            diferenca_dias = (o['data'] - r['data']).days
+            if abs(diferenca_dias) <= janela_dias:
+                pares_correspondentes.append((r, o, diferenca_dias))
+
+    if pares_correspondentes:
+        for r, o, dias in pares_correspondentes:
+            sinal = f"+{dias}" if dias >= 0 else f"{dias}"
             _log('debug',
-                f"      📭 {exame['nome']} ({exame['tipo']}) - "
-                f"{exame['data'].strftime('%d/%m/%Y')} "
-                f"(anterior aos {JANELA_DIAS} dias)"
+                f"    🎯 Correspondência: RET {r['data'].strftime('%d/%m/%Y')} "
+                f"↔ OCTPAPILA {o['data'].strftime('%d/%m/%Y')} ({sinal} dias)"
             )
-            descartados += 1
+        para_copiar = ret_lista + oct_lista
+        return True, para_copiar, []
 
-    return para_copiar, descartados
+    menor_diferenca = min(
+        abs((o['data'] - r['data']).days)
+        for r in ret_lista
+        for o in oct_lista
+    )
+    _log('debug',
+        f"    📭 Nenhuma correspondência RET ↔ OCTPAPILA em ±{janela_dias} dias "
+        f"(menor intervalo: {menor_diferenca} dias)"
+    )
+    motivo = f"nenhum OCTPAPILA a ±{janela_dias} dias de uma RET (menor intervalo: {menor_diferenca} dias)"
+    return False, [], [motivo]
+
