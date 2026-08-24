@@ -79,15 +79,20 @@ def finalizar_lote(
     lote_id: int,
     total_prontuarios: int,
     total_arquivos: int,
-    status: str = 'concluido',
+    status: str = "concluido",
 ) -> None:
     conn.execute(
         """UPDATE lote
            SET data_fim = ?, total_prontuarios = ?,
                total_arquivos = ?, status = ?
            WHERE id = ?""",
-        (datetime.now().isoformat(), total_prontuarios,
-         total_arquivos, status, lote_id),
+        (
+            datetime.now().isoformat(),
+            total_prontuarios,
+            total_arquivos,
+            status,
+            lote_id,
+        ),
     )
     conn.commit()
 
@@ -104,8 +109,14 @@ def registrar_copia(
         """INSERT INTO historico_copias
            (lote_id, prontuario, arquivo, tipo_exame, data_exame, data_copia)
            VALUES (?, ?, ?, ?, ?, ?)""",
-        (lote_id, prontuario, arquivo, tipo_exame, data_exame,
-         datetime.now().isoformat()),
+        (
+            lote_id,
+            prontuario,
+            arquivo,
+            tipo_exame,
+            data_exame,
+            datetime.now().isoformat(),
+        ),
     )
     conn.commit()
 
@@ -126,9 +137,7 @@ def registrar_descarte(
 
 
 def listar_prontuarios_processados(conn: sqlite3.Connection) -> set[str]:
-    cursor = conn.execute(
-        """SELECT DISTINCT prontuario FROM historico_copias
+    cursor = conn.execute("""SELECT DISTINCT prontuario FROM historico_copias
            UNION
-           SELECT DISTINCT prontuario FROM prontuarios_descartados"""
-    )
+           SELECT DISTINCT prontuario FROM prontuarios_descartados""")
     return {row[0] for row in cursor.fetchall()}

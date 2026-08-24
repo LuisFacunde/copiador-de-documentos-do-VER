@@ -3,9 +3,9 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-reconfigure_stdout = getattr(sys.stdout, 'reconfigure', None)
+reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
 if callable(reconfigure_stdout):
-    reconfigure_stdout(encoding='utf-8')
+    reconfigure_stdout(encoding="utf-8")
 
 from src.config import DIRS_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE
 from src.leitor_planilha import ler_prontuarios
@@ -64,7 +64,7 @@ def processar_exames(
 
     # Criar lote
     numero_lote = obter_proximo_numero_lote(conn)
-    data_envio = datetime.now().strftime('%d-%m-%Y')
+    data_envio = datetime.now().strftime("%d-%m-%Y")
     nome_lote = f"Lote {numero_lote} - {data_envio}"
     lote_id = criar_lote(conn, numero_lote, data_envio)
 
@@ -88,17 +88,17 @@ def processar_exames(
 
     # Processar prontuários
     estatisticas = {
-        'pacientes_processados': 0,
-        'pasta_nao_encontrada': 0,
-        'pasta_sem_arquivos': 0,
-        'exames_sem_correspondencia': 0,
-        'arquivos_copiados': 0,
-        'arquivos_pulados': 0,
-        'arquivos_invalidos': 0,
-        'arquivos_tipo_invalido': 0,
-        'arquivos_fora_periodo': 0,
-        'arquivos_fora_janela': 0,
-        'erros': 0,
+        "pacientes_processados": 0,
+        "pasta_nao_encontrada": 0,
+        "pasta_sem_arquivos": 0,
+        "exames_sem_correspondencia": 0,
+        "arquivos_copiados": 0,
+        "arquivos_pulados": 0,
+        "arquivos_invalidos": 0,
+        "arquivos_tipo_invalido": 0,
+        "arquivos_fora_periodo": 0,
+        "arquivos_fora_janela": 0,
+        "erros": 0,
     }
 
     copiados_sucesso = 0
@@ -118,7 +118,7 @@ def processar_exames(
             verbose=verbose,
         )
 
-        motivo = resultado['motivo_exclusao']
+        motivo = resultado["motivo_exclusao"]
         if motivo:
             estatisticas[motivo] += 1
             registrar_descarte(
@@ -129,24 +129,24 @@ def processar_exames(
             )
         else:
             copiados_sucesso += 1
-            estatisticas['pacientes_processados'] += 1
-            for arq in resultado.get('arquivos_copiados', []):
+            estatisticas["pacientes_processados"] += 1
+            for arq in resultado.get("arquivos_copiados", []):
                 registrar_copia(
                     conn=conn,
                     lote_id=lote_id,
                     prontuario=prontuario,
-                    arquivo=arq['nome'],
-                    tipo_exame=arq.get('tipo'),
-                    data_exame=arq.get('data'),
+                    arquivo=arq["nome"],
+                    tipo_exame=arq.get("tipo"),
+                    data_exame=arq.get("data"),
                 )
 
-        estatisticas['arquivos_copiados']      += resultado['copiados']
-        estatisticas['arquivos_pulados']       += resultado['pulados']
-        estatisticas['arquivos_invalidos']     += resultado['invalidos']
-        estatisticas['arquivos_tipo_invalido'] += resultado['tipo_invalido']
-        estatisticas['arquivos_fora_periodo']  += resultado['fora_periodo']
-        estatisticas['arquivos_fora_janela']   += resultado['fora_janela']
-        estatisticas['erros']                  += resultado['erros']
+        estatisticas["arquivos_copiados"] += resultado["copiados"]
+        estatisticas["arquivos_pulados"] += resultado["pulados"]
+        estatisticas["arquivos_invalidos"] += resultado["invalidos"]
+        estatisticas["arquivos_tipo_invalido"] += resultado["tipo_invalido"]
+        estatisticas["arquivos_fora_periodo"] += resultado["fora_periodo"]
+        estatisticas["arquivos_fora_janela"] += resultado["fora_janela"]
+        estatisticas["erros"] += resultado["erros"]
 
         if copiados_sucesso >= meta_lote:
             break
@@ -154,23 +154,20 @@ def processar_exames(
     restantes = total_pendentes - prontuarios_analisados
 
     # Finalizar lote
-    status = (
-        'concluido' if estatisticas['erros'] == 0
-        else 'concluido_com_erros'
-    )
+    status = "concluido" if estatisticas["erros"] == 0 else "concluido_com_erros"
     finalizar_lote(
         conn=conn,
         lote_id=lote_id,
-        total_prontuarios=estatisticas['pacientes_processados'],
-        total_arquivos=estatisticas['arquivos_copiados'],
+        total_prontuarios=estatisticas["pacientes_processados"],
+        total_arquivos=estatisticas["arquivos_copiados"],
         status=status,
     )
 
     # Relatório
     info_lote = {
-        'numero': numero_lote,
-        'data_envio': data_envio,
-        'pendentes': restantes,
+        "numero": numero_lote,
+        "data_envio": data_envio,
+        "pendentes": restantes,
     }
     imprimir_relatorio(estatisticas, info_lote=info_lote, logger=logger)
 
@@ -182,32 +179,32 @@ def processar_exames(
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Processador de Exames — Cópia com filtros e lotes',
+        description="Processador de Exames — Cópia com filtros e lotes",
     )
     parser.add_argument(
-        '--force',
-        action='store_true',
+        "--force",
+        action="store_true",
         default=False,
-        help='Reprocessa prontuários mesmo que já constem no histórico',
+        help="Reprocessa prontuários mesmo que já constem no histórico",
     )
     parser.add_argument(
-        '--origem',
+        "--origem",
         type=str,
-        nargs='+',
+        nargs="+",
         default=DIRS_EXAMES_ORIGEM,
-        help=f'Diretório(s) de origem dos exames (padrão: {DIRS_EXAMES_ORIGEM})',
+        help=f"Diretório(s) de origem dos exames (padrão: {DIRS_EXAMES_ORIGEM})",
     )
     parser.add_argument(
-        '--destino',
+        "--destino",
         type=str,
         default=DIR_EXAMES_DESTINO,
-        help=f'Diretório de destino das cópias (padrão: {DIR_EXAMES_DESTINO})',
+        help=f"Diretório de destino das cópias (padrão: {DIR_EXAMES_DESTINO})",
     )
     parser.add_argument(
-        '--silencioso',
-        action='store_true',
+        "--silencioso",
+        action="store_true",
         default=False,
-        help='Suprime saída detalhada no console',
+        help="Suprime saída detalhada no console",
     )
 
     args = parser.parse_args()
@@ -220,5 +217,5 @@ def main():
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

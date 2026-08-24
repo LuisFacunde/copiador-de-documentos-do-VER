@@ -7,7 +7,7 @@ from .config import MAPA_TIPOS
 def extrair_info_arquivo(nome_arquivo: str) -> tuple:
 
     stem = Path(nome_arquivo).stem
-    partes = stem.split('-')
+    partes = stem.split("-")
 
     if len(partes) < 4:
         return None, None, None
@@ -19,7 +19,7 @@ def extrair_info_arquivo(nome_arquivo: str) -> tuple:
     if data is None:
         return None, None, None
 
-    tipo_raw = partes[3].upper() if len(partes) > 3 else ''
+    tipo_raw = partes[3].upper() if len(partes) > 3 else ""
     tipo = _mapear_tipo(tipo_raw)
 
     return data, prontuario, tipo

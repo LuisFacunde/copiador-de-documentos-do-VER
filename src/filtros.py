@@ -22,8 +22,11 @@ def agrupar_por_tipo(
     verbose: bool = False,
 ) -> dict:
     resultado = {
-        'RET': [], 'OCTPAPILA': [],
-        '_invalidos': 0, '_tipo_invalido': 0, '_fora_periodo': 0,
+        "RET": [],
+        "OCTPAPILA": [],
+        "_invalidos": 0,
+        "_tipo_invalido": 0,
+        "_fora_periodo": 0,
     }
 
     def _log(nivel: str, msg: str) -> None:
@@ -41,29 +44,35 @@ def agrupar_por_tipo(
         data, prontuario, tipo = extrair_info_arquivo(arquivo.name)
 
         if data is None:
-            _log('debug', f"    📭 {arquivo.name} - não foi possível extrair data")
-            resultado['_invalidos'] += 1
+            _log("debug", f"    📭 {arquivo.name} - não foi possível extrair data")
+            resultado["_invalidos"] += 1
             continue
 
         if tipo is None:
-            _log('debug', f"    📭 {arquivo.name} - tipo de exame não é RET nem OCTPAPILA")
-            resultado['_tipo_invalido'] += 1
+            _log(
+                "debug",
+                f"    📭 {arquivo.name} - tipo de exame não é RET nem OCTPAPILA",
+            )
+            resultado["_tipo_invalido"] += 1
             continue
 
         if not dentro_do_periodo(data):
-            _log('debug',
+            _log(
+                "debug",
                 f"    📭 {arquivo.name} - fora do período "
-                f"({DATA_MIN.strftime('%d/%m/%Y')} a {DATA_MAX.strftime('%d/%m/%Y')})"
+                f"({DATA_MIN.strftime('%d/%m/%Y')} a {DATA_MAX.strftime('%d/%m/%Y')})",
             )
-            resultado['_fora_periodo'] += 1
+            resultado["_fora_periodo"] += 1
             continue
 
-        resultado[tipo].append({
-            'path': arquivo,
-            'data': data,
-            'tipo': tipo,
-            'nome': arquivo.name,
-        })
+        resultado[tipo].append(
+            {
+                "path": arquivo,
+                "data": data,
+                "tipo": tipo,
+                "nome": arquivo.name,
+            }
+        )
 
     return resultado
 
@@ -93,29 +102,28 @@ def avaliar_criterio_paciente(
     pares_correspondentes = []
     for r in ret_lista:
         for o in oct_lista:
-            diferenca_dias = (o['data'] - r['data']).days
+            diferenca_dias = (o["data"] - r["data"]).days
             if abs(diferenca_dias) <= janela_dias:
                 pares_correspondentes.append((r, o, diferenca_dias))
 
     if pares_correspondentes:
         for r, o, dias in pares_correspondentes:
             sinal = f"+{dias}" if dias >= 0 else f"{dias}"
-            _log('debug',
+            _log(
+                "debug",
                 f"    🎯 Correspondência: RET {r['data'].strftime('%d/%m/%Y')} "
-                f"↔ OCTPAPILA {o['data'].strftime('%d/%m/%Y')} ({sinal} dias)"
+                f"↔ OCTPAPILA {o['data'].strftime('%d/%m/%Y')} ({sinal} dias)",
             )
         para_copiar = ret_lista + oct_lista
         return True, para_copiar, []
 
     menor_diferenca = min(
-        abs((o['data'] - r['data']).days)
-        for r in ret_lista
-        for o in oct_lista
+        abs((o["data"] - r["data"]).days) for r in ret_lista for o in oct_lista
     )
-    _log('debug',
+    _log(
+        "debug",
         f"    📭 Nenhuma correspondência RET ↔ OCTPAPILA em ±{janela_dias} dias "
-        f"(menor intervalo: {menor_diferenca} dias)"
+        f"(menor intervalo: {menor_diferenca} dias)",
     )
     motivo = f"nenhum OCTPAPILA a ±{janela_dias} dias de uma RET (menor intervalo: {menor_diferenca} dias)"
     return False, [], [motivo]
-

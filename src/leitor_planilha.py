@@ -19,7 +19,7 @@ def ler_prontuarios(
     cabecalho = None
     for row in ws.iter_rows(values_only=True):
         if any(v is not None for v in row):
-            cabecalho = [str(v).strip() if v is not None else '' for v in row]
+            cabecalho = [str(v).strip() if v is not None else "" for v in row]
             break
 
     if cabecalho is None or coluna not in cabecalho:
@@ -36,14 +36,14 @@ def ler_prontuarios(
 
     for row in ws.iter_rows(values_only=True):
         if not cabecalho_encontrado:
-            valores = [str(v).strip() if v is not None else '' for v in row]
+            valores = [str(v).strip() if v is not None else "" for v in row]
             if coluna in valores:
                 cabecalho_encontrado = True
             continue
 
         valor = row[indice_coluna]
         if valor is not None:
-            prontuario = str(valor).strip().split('.')[0]
+            prontuario = str(valor).strip().split(".")[0]
             if prontuario:
                 prontuarios.append(prontuario)
 
