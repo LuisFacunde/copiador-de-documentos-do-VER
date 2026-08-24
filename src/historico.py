@@ -2,10 +2,8 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from .config import BANCO_HISTORICO
 
-
-def inicializar_banco(caminho_db: Path = BANCO_HISTORICO) -> sqlite3.Connection:
+def inicializar_banco(caminho_db: Path) -> sqlite3.Connection:
     caminho_db = Path(caminho_db)
     caminho_db.parent.mkdir(parents=True, exist_ok=True)
 

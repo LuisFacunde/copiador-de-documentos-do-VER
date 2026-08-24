@@ -7,7 +7,7 @@ reconfigure_stdout = getattr(sys.stdout, 'reconfigure', None)
 if callable(reconfigure_stdout):
     reconfigure_stdout(encoding='utf-8')
 
-from src.config import DIRS_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE
+from src.perfil import carregar_perfil, listar_series, PerfilSerie
 from src.leitor_planilha import ler_prontuarios
 from src.copiador import processar_prontuario
 from src.relatorio import imprimir_relatorio
@@ -24,15 +24,18 @@ from src.logger import configurar_logger
 
 
 def processar_exames(
-    dirs_origem: list[str] = DIRS_EXAMES_ORIGEM,
-    dir_destino: str = DIR_EXAMES_DESTINO,
+    perfil: PerfilSerie,
     forcar: bool = False,
     verbose: bool = True,
 ) -> None:
-    conn = inicializar_banco()
+    conn = inicializar_banco(perfil.banco_historico)
 
     try:
-        todos_prontuarios = ler_prontuarios()
+        todos_prontuarios = ler_prontuarios(
+            caminho=perfil.planilha,
+            aba=perfil.aba_planilha,
+            coluna=perfil.coluna_prontuario,
+        )
     except (FileNotFoundError, ValueError) as exc:
         print(f"  ❌ {exc}")
         conn.close()
@@ -60,7 +63,7 @@ def processar_exames(
         conn.close()
         return
 
-    meta_lote = LIMITE_PACIENTES_LOTE
+    meta_lote = perfil.limite_pacientes_lote
 
     # Criar lote
     numero_lote = obter_proximo_numero_lote(conn)
@@ -69,7 +72,7 @@ def processar_exames(
     lote_id = criar_lote(conn, numero_lote, data_envio)
 
     # Criar pasta do lote
-    pasta_lote = Path(dir_destino) / nome_lote
+    pasta_lote = Path(perfil.dir_destino) / nome_lote
     pasta_lote.mkdir(parents=True, exist_ok=True)
 
     # Configurar logger (dentro da pasta do lote)
@@ -77,7 +80,7 @@ def processar_exames(
     logger = configurar_logger(caminho_log, numero_lote)
 
     logger.info("=" * 70)
-    logger.info(f"  📦 LOTE {numero_lote} - {data_envio}")
+    logger.info(f"  📦 LOTE {numero_lote} - {data_envio}  [{perfil.nome}]")
     logger.info("=" * 70)
     logger.info(f"  📋 Prontuários na planilha: {total_planilha}")
     logger.info(f"  📋 Prontuários pendentes: {total_pendentes}")
@@ -110,7 +113,7 @@ def processar_exames(
 
         resultado = processar_prontuario(
             prontuario=prontuario,
-            dirs_origem=dirs_origem,
+            perfil=perfil,
             dir_destino=str(pasta_lote),
             indice=indice_exibicao,
             total=meta_lote,
@@ -181,8 +184,19 @@ def processar_exames(
 
 
 def main():
+    series_disponiveis = listar_series()
+
     parser = argparse.ArgumentParser(
         description='Processador de Exames — Cópia com filtros e lotes',
+    )
+    parser.add_argument(
+        'serie',
+        nargs='?',
+        default=series_disponiveis[0] if len(series_disponiveis) == 1 else None,
+        help=(
+            f'Nome da série a processar. '
+            f'Disponíveis: {series_disponiveis or "(nenhuma)"}'
+        ),
     )
     parser.add_argument(
         '--force',
@@ -191,30 +205,44 @@ def main():
         help='Reprocessa prontuários mesmo que já constem no histórico',
     )
     parser.add_argument(
-        '--origem',
-        type=str,
-        nargs='+',
-        default=DIRS_EXAMES_ORIGEM,
-        help=f'Diretório(s) de origem dos exames (padrão: {DIRS_EXAMES_ORIGEM})',
-    )
-    parser.add_argument(
-        '--destino',
-        type=str,
-        default=DIR_EXAMES_DESTINO,
-        help=f'Diretório de destino das cópias (padrão: {DIR_EXAMES_DESTINO})',
-    )
-    parser.add_argument(
         '--silencioso',
         action='store_true',
         default=False,
         help='Suprime saída detalhada no console',
     )
+    parser.add_argument(
+        '--listar-series',
+        action='store_true',
+        default=False,
+        help='Lista as séries disponíveis e encerra',
+    )
 
     args = parser.parse_args()
 
+    if args.listar_series:
+        if series_disponiveis:
+            print("Séries disponíveis:")
+            for s in series_disponiveis:
+                print(f"  • {s}")
+        else:
+            print("Nenhuma série encontrada em series/")
+        return
+
+    if not args.serie:
+        parser.error(
+            f"Informe o nome da série. Disponíveis: {series_disponiveis or '(nenhuma)'}\n"
+            f"Uso: python processar_exames.py <serie> [--force] [--silencioso]"
+        )
+
+    try:
+        perfil = carregar_perfil(args.serie)
+    except FileNotFoundError as exc:
+        print(f"  ❌ {exc}")
+        sys.exit(1)
+
+    print(f"  🔬 Série: {perfil.nome}")
     processar_exames(
-        dirs_origem=args.origem,
-        dir_destino=args.destino,
+        perfil=perfil,
         forcar=args.force,
         verbose=not args.silencioso,
     )

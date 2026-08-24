@@ -4,11 +4,12 @@ from collections import Counter
 from pathlib import Path
 
 from .filtros import agrupar_por_tipo, avaliar_criterio_paciente
+from .perfil import PerfilSerie
 
 
 def processar_prontuario(
     prontuario: str,
-    dirs_origem: list[str | Path],
+    perfil: PerfilSerie,
     dir_destino: str | Path,
     indice: int = 0,
     total: int = 0,
@@ -38,8 +39,9 @@ def processar_prontuario(
     def _resumo(emoji: str, descricao: str) -> None:
         _log('info', f"{prefixo} Prontuário {prontuario} {emoji} {descricao}")
 
+    # Localiza a pasta do prontuário nas origens configuradas no perfil
     pasta_origem = None
-    for dir_orig in dirs_origem:
+    for dir_orig in perfil.dirs_origem:
         candidata = Path(dir_orig) / prontuario
         if candidata.exists():
             pasta_origem = candidata
@@ -54,6 +56,7 @@ def processar_prontuario(
         arquivos_na_pasta = list(pasta_origem.iterdir())
         agrupados = agrupar_por_tipo(
             arquivos_na_pasta,
+            perfil=perfil,
             logger=logger,
             verbose=verbose,
         )
@@ -67,16 +70,15 @@ def processar_prontuario(
     stats['fora_periodo']  += agrupados['_fora_periodo']
 
     total_arquivos_analisados = (
-        len(agrupados['RET'])
-        + len(agrupados['OCTPAPILA'])
+        sum(len(agrupados[t]) for t in perfil.mapa_tipos.values())
         + agrupados['_invalidos']
         + agrupados['_tipo_invalido']
         + agrupados['_fora_periodo']
     )
 
     aprovado, para_copiar, motivos_reprovacao = avaliar_criterio_paciente(
-        ret_lista=agrupados['RET'],
-        oct_lista=agrupados['OCTPAPILA'],
+        agrupados=agrupados,
+        perfil=perfil,
         logger=logger,
         verbose=verbose,
     )
@@ -86,8 +88,10 @@ def processar_prontuario(
             _resumo('📭', 'Sem arquivos de exame na pasta')
             stats['motivo_exclusao'] = 'pasta_sem_arquivos'
         else:
-            if agrupados['RET'] and agrupados['OCTPAPILA']:
-                stats['fora_janela'] += (len(agrupados['RET']) + len(agrupados['OCTPAPILA']))
+            # Conta arquivos fora da janela temporal
+            tipos_validos_count = sum(len(agrupados[t]) for t in perfil.tipos_obrigatorios)
+            if tipos_validos_count > 0:
+                stats['fora_janela'] += tipos_validos_count
 
             motivos = list(motivos_reprovacao)
             if agrupados['_fora_periodo']:
@@ -102,7 +106,6 @@ def processar_prontuario(
             _resumo('📭', f'Nenhum exame atende aos filtros{detalhe}')
             stats['motivo_exclusao'] = 'exames_sem_correspondencia'
         return stats
-
 
     pasta_destino = Path(dir_destino) / prontuario
     pasta_destino.mkdir(parents=True, exist_ok=True)

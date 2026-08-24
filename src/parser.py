@@ -1,11 +1,21 @@
 from datetime import datetime
 from pathlib import Path
 
-from .config import MAPA_TIPOS
 
+def extrair_info_arquivo(nome_arquivo: str, mapa_tipos: dict[str, str]) -> tuple:
+    """
+    Extrai (data, prontuario, tipo) do nome de um arquivo de exame.
 
-def extrair_info_arquivo(nome_arquivo: str) -> tuple:
+    Formato esperado: PRONTUARIO-ID-YYYYMMDD-TIPO[-...].ext
 
+    Args:
+        nome_arquivo: Nome do arquivo (com ou sem extensão).
+        mapa_tipos:   Mapeamento de substring → rótulo interno.
+                      Ex: {"RETIN": "RET", "OCTPAPILA": "OCTPAPILA"}
+
+    Returns:
+        (data, prontuario, tipo) ou (None, None, None) se inválido.
+    """
     stem = Path(nome_arquivo).stem
     partes = stem.split('-')
 
@@ -20,7 +30,7 @@ def extrair_info_arquivo(nome_arquivo: str) -> tuple:
         return None, None, None
 
     tipo_raw = partes[3].upper() if len(partes) > 3 else ''
-    tipo = _mapear_tipo(tipo_raw)
+    tipo = _mapear_tipo(tipo_raw, mapa_tipos)
 
     return data, prontuario, tipo
 
@@ -34,8 +44,8 @@ def _parse_data(data_str: str | None) -> datetime | None:
         return None
 
 
-def _mapear_tipo(tipo_raw: str) -> str | None:
-    for chave, rotulo in MAPA_TIPOS.items():
+def _mapear_tipo(tipo_raw: str, mapa_tipos: dict[str, str]) -> str | None:
+    for chave, rotulo in mapa_tipos.items():
         if chave in tipo_raw:
             return rotulo
     return None

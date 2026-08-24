@@ -1,13 +1,11 @@
 from pathlib import Path
 import openpyxl
 
-from .config import PLANILHA_PRONTUARIOS, ABA_PLANILHA, COLUNA_PRONTUARIO
-
 
 def ler_prontuarios(
-    caminho: Path = PLANILHA_PRONTUARIOS,
-    aba: str | None = ABA_PLANILHA,
-    coluna: str = COLUNA_PRONTUARIO,
+    caminho: Path,
+    aba: str | None = None,
+    coluna: str = 'PRONT',
 ) -> list[str]:
     caminho = Path(caminho)
     if not caminho.exists():

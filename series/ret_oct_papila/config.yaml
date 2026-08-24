@@ -1,0 +1,38 @@
+nome: ret_oct_papila
+
+# Fonte de prontuários
+planilha: dados/planilhas/Pesquisa Exames RET com Oct 4 meses antes e depois.xlsx
+aba_planilha: "Select fav_pesquisa"
+coluna_prontuario: PRONT
+
+# Diretórios
+dirs_origem:
+  - '\\192.168.4.18\c$\apache24\htdocs\fav_exames\anexo'
+  - '\\192.168.4.52\c$\exames'
+dir_destino: C:/Users/luis.silva/Desktop/anexos_exames_copias
+
+# Banco de histórico (relativo à raiz do projeto)
+banco_historico: dados/bd/ret_oct_papila.db
+
+# Filtros temporais
+data_min: "2020-01-01"
+data_max: "2026-06-30"
+
+# Tipos de exame: chave = substring buscada no nome do arquivo, valor = rótulo interno
+mapa_tipos:
+  RETIN: RET
+  OCTPAPILA: OCTPAPILA
+
+# Todos esses tipos devem estar presentes (com correspondência na janela) para incluir o paciente
+tipos_obrigatorios:
+  - RET
+  - OCTPAPILA
+
+# Tolerância em dias entre os tipos obrigatórios
+janela_dias: 120
+
+# Extensão aceita (null = qualquer extensão)
+extensao_permitida: ".pdf"
+
+# Máximo de pacientes copiados por execução
+limite_pacientes_lote: 2500
