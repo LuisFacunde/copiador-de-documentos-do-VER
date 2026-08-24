@@ -70,10 +70,34 @@ anexos_exames_copias/
 
 ### 1. Prepare o ambiente
 
-Certifique-se de ter **Python 3.10+** e o pacote `openpyxl`:
+Certifique-se de ter **Python 3.10+** instalado.
+
+Recomendamos utilizar um ambiente virtual (`.venv`) para não conflitar com pacotes globais da sua máquina:
+
+#### Windows:
+
+```powershell
+# Cria a venv
+python -m venv .venv
+
+# Ativa a venv
+.venv\Scripts\activate
+
+# Instala os pacotes
+python -m pip install -r requirements.txt
+```
+
+#### Linux/macOS:
 
 ```bash
-pip install openpyxl
+# Cria a venv
+python3 -m venv .venv
+
+# Ativa a venv
+source .venv/bin/activate
+
+# Instala os pacotes
+python3 -m pip install -r requirements.txt
 ```
 
 ### 2. Configure os caminhos
