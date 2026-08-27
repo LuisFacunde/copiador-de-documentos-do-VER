@@ -20,6 +20,7 @@ DIRS_EXAMES_ORIGEM = [
 ]
 
 DIR_EXAMES_DESTINO = "C:/Users/luis.silva/Desktop/anexos_exames_copias"
+DIR_SSD_TI = r"D:\Projeto FAV X EINSTEIN\Prontuários recuperados"
 
 DATA_MIN = datetime(2020, 1, 1)
 DATA_MAX = datetime(2026, 6, 30)

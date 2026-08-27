@@ -44,6 +44,14 @@ def inicializar_banco(caminho_db: Path = BANCO_HISTORICO) -> sqlite3.Connection:
             FOREIGN KEY (lote_id) REFERENCES lote(id)
         );
 
+        CREATE TABLE IF NOT EXISTS prontuarios_recuperados (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            lote_id             INTEGER NOT NULL,
+            prontuario          TEXT    NOT NULL,
+            data_recuperacao    TEXT    NOT NULL,
+            FOREIGN KEY (lote_id) REFERENCES lote(id)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_prontuario
             ON historico_copias(prontuario);
         CREATE INDEX IF NOT EXISTS idx_lote
@@ -52,6 +60,8 @@ def inicializar_banco(caminho_db: Path = BANCO_HISTORICO) -> sqlite3.Connection:
             ON prontuarios_descartados(prontuario);
         CREATE INDEX IF NOT EXISTS idx_descartado_lote
             ON prontuarios_descartados(lote_id);
+        CREATE INDEX IF NOT EXISTS idx_recuperado_prontuario
+            ON prontuarios_recuperados(prontuario);
     """)
 
     conn.commit()
@@ -132,6 +142,20 @@ def registrar_descarte(
            (lote_id, prontuario, motivo, data_processamento)
            VALUES (?, ?, ?, ?)""",
         (lote_id, prontuario, motivo, datetime.now().isoformat()),
+    )
+    conn.commit()
+
+
+def registrar_recuperacao(
+    conn: sqlite3.Connection,
+    lote_id: int,
+    prontuario: str,
+) -> None:
+    conn.execute(
+        """INSERT INTO prontuarios_recuperados
+           (lote_id, prontuario, data_recuperacao)
+           VALUES (?, ?, ?)""",
+        (lote_id, prontuario, datetime.now().isoformat()),
     )
     conn.commit()
 

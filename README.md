@@ -8,9 +8,12 @@ Este sistema **copia exames de pacientes** de um diretório de origem para um de
 
 - ✅ **Lotes automáticos** — Processa até 2.500 prontuários por execução
 - ✅ **Histórico SQLite** — Não reprocessa prontuários já copiados
+- ✅ **Recuperação de descartados** — Script dedicado para reprocessar prontuários descartados
+- ✅ **Busca em múltiplos servidores** — Agrega arquivos de todos os diretórios de origem
+- ✅ **Busca em dois formatos** — Formato antigo (critério) + formato novo (cópia complementar)
 - ✅ **Log por lote** — Arquivo de log detalhado salvo na pasta do lote
-- ✅ **Subpastas organizadas** — Saída em `Lote N - DD-MM-AAAA`
-- ✅ **CLI com argumentos** — `--force`, `--origem`, `--destino`, `--silencioso`
+- ✅ **Subpastas organizadas** — Saída em `Lote N - DD-MM-AAAA` ou `Recuperação N - DD-MM-AAAA`
+- ✅ **CLI com argumentos** — `--force`, `--origem`, `--destino`, `--silencioso`, `--banco`
 
 ### Critérios de filtro
 
@@ -25,19 +28,22 @@ Este sistema **copia exames de pacientes** de um diretório de origem para um de
 
 ```
 copiador_de_documentos/
-├── processar_exames.py           # Entry point (CLI com argparse)
+├── processar_exames.py           # Entry point principal (lotes de cópia)
+├── recuperar_descartados.py      # Recuperação de prontuários descartados
 ├── dados/
 │   ├── planilha_de_testes.xlsx   # Planilha com prontuários
-│   └── historico.db              # Banco SQLite (gerado automaticamente)
+│   └── bd/
+│       ├── historico.db              # Banco SQLite padrão (gerado automaticamente)
+│       └── historico_completo.db     # Banco com histórico completo
 ├── src/
 │   ├── __init__.py
 │   ├── config.py                 # Configurações e constantes
-│   ├── copiador.py               # Lógica de cópia de arquivos
+│   ├── copiador.py               # Lógica de cópia de arquivos (busca em dois formatos)
 │   ├── filtros.py                # Filtros de tipo, período e janela temporal
 │   ├── historico.py              # Módulo de banco de dados (SQLite)
 │   ├── leitor_planilha.py        # Leitura da planilha Excel
 │   ├── logger.py                 # Módulo de logging por lote
-│   ├── parser.py                 # Parser de nomes de arquivo
+│   ├── parser.py                 # Parser de nomes de arquivo (antigo + novo)
 │   └── relatorio.py              # Relatório final formatado
 └── README.md
 ```
@@ -46,7 +52,7 @@ copiador_de_documentos/
 
 ## 📁 Estrutura de Saída (Destino)
 
-A saída é organizada em subpastas por lote, facilitando controle e rastreabilidade:
+A saída é organizada em subpastas por lote/recuperação, facilitando controle e rastreabilidade:
 
 ```
 anexos_exames_copias/
@@ -59,6 +65,11 @@ anexos_exames_copias/
 │       └── ...
 ├── Lote 2 - 12-08-2026/
 │   ├── log_lote_2.txt
+│   └── ...
+├── Recuperação 9 - 26-08-2026/
+│   ├── log_recuperacao_9.txt     # Log da recuperação
+│   ├── 1480305/
+│   │   └── ...
 │   └── ...
 └── Lote 3 - 19-08-2026/
     └── ...
@@ -124,6 +135,12 @@ python processar_exames.py
 python processar_exames.py --force
 ```
 
+**Usar banco específico**:
+
+```bash
+python processar_exames.py --banco dados/bd/historico_completo.db
+```
+
 **Especificar diretórios**:
 
 ```bash
@@ -142,16 +159,58 @@ python processar_exames.py --silencioso
 python processar_exames.py --force --silencioso --destino "D:/copias"
 ```
 
+### 4. Recuperar prontuários descartados
+
+O script `recuperar_descartados.py` reprocessa prontuários que foram descartados anteriormente (sem correspondência, pasta não encontrada, etc.) e registra os recuperados com sucesso.
+
+**Recuperar todos os descartados**:
+
+```bash
+python recuperar_descartados.py --banco dados/bd/historico_completo.db
+```
+
+**Com limite de prontuários** (processar apenas N):
+
+```bash
+python recuperar_descartados.py --banco dados/bd/historico_completo.db --limite 500
+```
+
+**Reprocessar incluindo já recuperados**:
+
+```bash
+python recuperar_descartados.py --banco dados/bd/historico_completo.db --force
+```
+
+**Com diretório de destino customizado**:
+
+```bash
+python recuperar_descartados.py --banco dados/bd/historico_completo.db --destino "D:/copias"
+```
+
 ---
 
 ## ⚙️ Argumentos CLI
 
+### `processar_exames.py`
+
 | Argumento      | Descrição                                                     | Padrão                  |
 | -------------- | ------------------------------------------------------------- | ----------------------- |
 | `--force`      | Reprocessa prontuários já copiados em lotes anteriores        | `False`                 |
-| `--origem`     | Diretório de origem dos exames                                | Definido em `config.py` |
+| `--origem`     | Diretório(s) de origem dos exames                             | Definido em `config.py` |
 | `--destino`    | Diretório de destino das cópias (lotes serão criados dentro)  | Definido em `config.py` |
+| `--banco`      | Caminho do banco de dados SQLite                              | `dados/bd/historico.db` |
 | `--silencioso` | Suprime saída detalhada no console (log em arquivo é mantido) | `False`                 |
+
+### `recuperar_descartados.py`
+
+| Argumento      | Descrição                                                         | Padrão                  |
+| -------------- | ----------------------------------------------------------------- | ----------------------- |
+| `--banco`      | Caminho do banco de dados SQLite                                  | `dados/bd/historico.db` |
+| `--origem`     | Diretório(s) de origem dos exames                                 | Definido em `config.py` |
+| `--destino`    | Diretório de destino das cópias                                   | Definido em `config.py` |
+| `--force`      | Reprocessa todos os descartados, mesmo os já recuperados          | `False`                 |
+| `--limite`     | Número máximo de prontuários a recuperar nesta execução           | Todos                   |
+| `--silencioso` | Suprime saída detalhada no console (log em arquivo é mantido)     | `False`                 |
 
 ---
 
@@ -191,7 +250,9 @@ Execução 4: Mesma planilha
 
 O sistema utiliza **SQLite** (módulo nativo do Python, sem instalação adicional) para manter histórico.
 
-**Localização**: `dados/historico.db`
+**Localização padrão**: `dados/bd/historico.db`
+
+> ℹ️ Pode-se usar um banco alternativo (ex: `historico_completo.db`) via flag `--banco`.
 
 ### Tabelas
 
@@ -219,6 +280,25 @@ O sistema utiliza **SQLite** (módulo nativo do Python, sem instalação adicion
 | `tipo_exame` | TEXT    | Tipo do exame (RET, OCTPAPILA) |
 | `data_exame` | TEXT    | Data do exame (ISO 8601)       |
 | `data_copia` | TEXT    | Timestamp da cópia             |
+
+#### `prontuarios_descartados`
+
+| Coluna               | Tipo    | Descrição                                    |
+| -------------------- | ------- | -------------------------------------------- |
+| `id`                 | INTEGER | Chave primária                               |
+| `lote_id`            | INTEGER | FK para tabela `lote`                        |
+| `prontuario`         | TEXT    | Número do prontuário                         |
+| `motivo`             | TEXT    | Motivo do descarte (ex: `exames_sem_correspondencia`, `pasta_nao_encontrada`) |
+| `data_processamento` | TEXT    | Timestamp do processamento                   |
+
+#### `prontuarios_recuperados`
+
+| Coluna             | Tipo    | Descrição                          |
+| ------------------ | ------- | ---------------------------------- |
+| `id`               | INTEGER | Chave primária                     |
+| `lote_id`          | INTEGER | FK para tabela `lote`              |
+| `prontuario`       | TEXT    | Número do prontuário recuperado    |
+| `data_recuperacao`  | TEXT    | Timestamp da recuperação           |
 
 ---
 
@@ -291,9 +371,29 @@ Lote 1 - 05-08-2026/
 
 ---
 
-## 📝 Formato do Nome do Arquivo
+## 📝 Formatos de Nome de Arquivo
 
-O script espera o seguinte formato:
+O sistema reconhece **dois formatos** de nome de arquivo:
+
+### Formato Antigo (critério de inclusão)
+
+```
+PRONTUARIO - NOME - DESC_EXAME
+```
+
+**Exemplo:**
+
+```
+2324530 - João Silva - Retinografia AO.pdf
+```
+
+- `2324530` → Prontuário (extraído do início do nome)
+- `Retinografia` / `OCTPAPILA` → Tipo (mapeado por palavra-chave no nome)
+- **Data** → Obtida do **metadado de modificação** do arquivo (`st_mtime` / `st_ctime`)
+
+> ⚠️ **Este é o formato usado para avaliar os critérios de inclusão do paciente.**
+
+### Formato Novo (cópia complementar)
 
 ```
 PRONTUARIO-ID-YYYYMMDD-TIPO-OLHO-TIMESTAMP
@@ -305,14 +405,14 @@ PRONTUARIO-ID-YYYYMMDD-TIPO-OLHO-TIMESTAMP
 2324530-7194197-20250219-RETIN-AO-1739989244
 ```
 
-**Partes:**
-
 - `2324530` → Prontuário
 - `7194197` → ID (ignorado)
 - `20250219` → Data (19/02/2025)
 - `RETIN` → Tipo (RET = Retinografia, OCTPAPILA = OCT Papila)
 - `AO` → Olho (ignorado)
 - `1739989244` → Timestamp (ignorado)
+
+> ℹ️ Exames no formato novo **não são usados para avaliar critérios**. São copiados apenas se o paciente já foi aprovado pelos exames antigos, e apenas dos **mesmos tipos** aprovados.
 
 ---
 
@@ -329,13 +429,23 @@ PRONTUARIO-ID-YYYYMMDD-TIPO-OLHO-TIMESTAMP
 - ✅ De `01/01/2020` a `30/06/2026`
 - ❌ Fora deste período = descartado
 
-### 3. **Critério de 4 Meses (120 dias)**
+### 3. **Critério de Inclusão (±4 meses / 120 dias) — Busca em duas fases**
 
-Para **cada tipo de exame independentemente** (RET e OCTPAPILA separados):
+A inclusão é avaliada em **duas fases**:
 
-1. Encontra o exame **mais recente**
-2. Calcula a data limite: `data_mais_recente - 120 dias`
-3. Copia todos os exames com `data >= data_limite`
+**Fase 1 — Validação (formato antigo prioritário):**
+
+1. O sistema tenta agrupar exames no **formato antigo** (data via metadado)
+2. Se encontrar exames antigos → usa-os para avaliar correspondência
+3. Se **não** encontrar antigos → **fallback** para busca híbrida (ambos os formatos)
+4. O paciente deve possuir pelo menos **um exame RET** e **um exame OCTPAPILA**
+5. Deve haver pelo menos **uma correspondência RET ↔ OCTPAPILA** dentro de **±120 dias**
+
+**Fase 2 — Cópia complementar (formato novo):**
+
+6. Se aprovado com formato antigo, **todos os exames antigos** RET e OCTPAPILA são copiados
+7. Adicionalmente, **exames no formato novo** dos **mesmos tipos** aprovados também são copiados
+8. Arquivos são coletados de **todos os diretórios de origem** configurados
 
 ---
 
@@ -379,9 +489,11 @@ Para **cada tipo de exame independentemente** (RET e OCTPAPILA separados):
 
 1. **Teste com `--force`** se precisar reprocessar prontuários já copiados
 2. **Use `--silencioso`** para execuções em produção (o log é sempre salvo)
-3. **Consulte o banco** com qualquer cliente SQLite para auditorias
-4. **Guarde as pastas de lote** — cada uma contém seu log para rastreabilidade
-5. **Faça backup** dos dados originais antes de usar
+3. **Use `--limite`** no `recuperar_descartados.py` para testar com poucos prontuários
+4. **Consulte o banco** com qualquer cliente SQLite para auditorias
+5. **Guarde as pastas de lote** — cada uma contém seu log para rastreabilidade
+6. **Faça backup** dos dados originais antes de usar
+7. **Banco alternativo** — Use `--banco dados/bd/historico_completo.db` para trabalhar com o histórico completo
 
 ---
 

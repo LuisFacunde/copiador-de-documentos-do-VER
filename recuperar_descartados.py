@@ -1,6 +1,13 @@
+"""
+Recuperador de Prontuários Descartados.
+
+Lê prontuários da tabela 'prontuarios_descartados' que ainda não foram
+recuperados, reprocessa-os usando a busca em dois formatos (antigo + novo),
+e registra os recuperados com sucesso na tabela 'prontuarios_recuperados'.
+"""
+
 import sys
 import argparse
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -8,7 +15,12 @@ reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
 if callable(reconfigure_stdout):
     reconfigure_stdout(encoding="utf-8")
 
-from src.config import DIRS_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE, BANCO_HISTORICO
+from src.config import (
+    DIRS_EXAMES_ORIGEM,
+    DIR_SSD_TI,
+    BANCO_HISTORICO,
+    LIMITE_PACIENTES_LOTE,
+)
 from src.copiador import processar_prontuario
 from src.relatorio import imprimir_relatorio
 from src.historico import (
@@ -18,81 +30,87 @@ from src.historico import (
     registrar_copia,
     registrar_descarte,
     finalizar_lote,
-    listar_prontuarios_processados,
     registrar_recuperacao,
 )
 from src.logger import configurar_logger
 
 
-def processar_exames(
+def recuperar_descartados(
     dirs_origem: list[str] = DIRS_EXAMES_ORIGEM,
-    dir_destino: str = DIR_EXAMES_DESTINO,
+    dir_destino: str = DIR_SSD_TI,
+    banco: str = str(BANCO_HISTORICO),
     forcar: bool = False,
+    limite: int | None = LIMITE_PACIENTES_LOTE,
     verbose: bool = True,
-    banco_resgate: str | None = None,
-    banco: str | None = None,
 ) -> None:
-    caminho_banco = banco if banco else BANCO_HISTORICO
-    conn = inicializar_banco(caminho_banco)
+    conn = inicializar_banco(banco)
 
+    # ── Buscar prontuários descartados e já recuperados ──
     try:
-        # Lendo apenas da tabela de descartados (ainda não recuperados)
-        cursor = conn.execute("""
-            SELECT DISTINCT d.prontuario 
-            FROM prontuarios_descartados d
-            LEFT JOIN prontuarios_recuperados r ON d.prontuario = r.prontuario
-            WHERE r.prontuario IS NULL
-        """)
-        todos_prontuarios = [row[0] for row in cursor.fetchall()]
+        cursor = conn.execute(
+            "SELECT DISTINCT prontuario FROM prontuarios_descartados"
+        )
+        todos_descartados = [row[0] for row in cursor.fetchall()]
+
+        cursor = conn.execute(
+            "SELECT DISTINCT prontuario FROM prontuarios_recuperados"
+        )
+        ja_recuperados = set(row[0] for row in cursor.fetchall())
     except Exception as exc:
         print(f"  ❌ Erro ao consultar banco: {exc}")
         conn.close()
         return
 
-    total_planilha = len(todos_prontuarios)
-    print(f"  📋 Total de prontuários descartados disponíveis: {total_planilha}")
+    total_descartados = len(todos_descartados)
+    total_ja_recuperados = len(ja_recuperados)
 
     if forcar:
-        print("  ⚠️  Modo --force ativo: reprocessando todos os prontuários (mesmo os recuperados)")
-        cursor = conn.execute("SELECT DISTINCT prontuario FROM prontuarios_descartados")
-        prontuarios_pendentes = [row[0] for row in cursor.fetchall()]
+        prontuarios_pendentes = todos_descartados
     else:
-        prontuarios_pendentes = todos_prontuarios
+        prontuarios_pendentes = [p for p in todos_descartados if p not in ja_recuperados]
 
     total_pendentes = len(prontuarios_pendentes)
+
+    print(f"  📋 Total de prontuários descartados no banco: {total_descartados}")
+    print(f"  ⏭️  Prontuários descartados já recuperados/copiados: {total_ja_recuperados}")
+    print(f"  📋 Prontuários pendentes de recuperação: {total_pendentes}")
+
     if total_pendentes == 0:
-        print("  ✅ Todos os prontuários já foram processados em lotes anteriores.")
-        print("     Use --force para reprocessar.")
+        print("  ✅ Todos os prontuários descartados já foram recuperados/copiados.")
+        if not forcar:
+            print("     Use --force para reprocessar os já recuperados.")
         conn.close()
         return
 
-    meta_lote = LIMITE_PACIENTES_LOTE
+    meta = min(limite, total_pendentes) if limite else total_pendentes
 
-    # Criar lote
+    # ── Criar lote de recuperação ──
     numero_lote = obter_proximo_numero_lote(conn)
     data_envio = datetime.now().strftime("%d-%m-%Y")
-    nome_lote = f"Lote {numero_lote} - {data_envio}"
+    nome_lote = f"Recuperação {numero_lote} - {data_envio}"
     lote_id = criar_lote(conn, numero_lote, data_envio)
 
-    # Criar pasta do lote
     pasta_lote = Path(dir_destino) / nome_lote
     pasta_lote.mkdir(parents=True, exist_ok=True)
 
-    # Configurar logger (dentro da pasta do lote)
-    caminho_log = pasta_lote / f"log_lote_{numero_lote}.txt"
+    caminho_log = pasta_lote / f"log_recuperacao_{numero_lote}.txt"
     logger = configurar_logger(caminho_log, numero_lote)
 
     logger.info("=" * 70)
-    logger.info(f"  📦 LOTE {numero_lote} - {data_envio}")
+    logger.info(f"  🔄 RECUPERAÇÃO DE DESCARTADOS — LOTE {numero_lote}")
+    logger.info(f"  📅 {data_envio}")
     logger.info("=" * 70)
-    logger.info(f"  📋 Prontuários na planilha: {total_planilha}")
-    logger.info(f"  📋 Prontuários pendentes: {total_pendentes}")
-    logger.info(f"  🎯 Meta de pacientes copiados neste lote: {meta_lote}")
+    logger.info(f"  📋 Total de prontuários descartados: {total_descartados}")
+    logger.info(f"  ⏭️  Prontuários já recuperados/copiados: {total_ja_recuperados}")
+    logger.info(f"  📋 Prontuários pendentes de recuperação: {total_pendentes}")
+    logger.info(f"  🎯 Meta de pacientes recuperados neste lote: {meta}")
+    logger.info(f"  📂 Origem: {dirs_origem}")
+    logger.info(f"  🗄️  Banco: {banco}")
     if forcar:
-        logger.info("  ⚠️  Modo --force ativo")
+        logger.info("  ⚠️  Modo --force ativo (reprocessando inclusive os já recuperados)")
     logger.info("")
 
-    # Processar prontuários
+    # ── Estatísticas ──
     estatisticas = {
         "pacientes_processados": 0,
         "pasta_nao_encontrada": 0,
@@ -107,35 +125,37 @@ def processar_exames(
         "erros": 0,
     }
 
-    copiados_sucesso = 0
-    prontuarios_analisados = 0
+    recuperados = 0
+    analisados = 0
 
+    # ── Processar cada prontuário ──
     for prontuario in prontuarios_pendentes:
-        prontuarios_analisados += 1
-        indice_exibicao = min(copiados_sucesso + 1, meta_lote)
+        if recuperados >= meta:
+            break
+
+        analisados += 1
+        indice_exibicao = min(recuperados + 1, meta)
 
         resultado = processar_prontuario(
             prontuario=prontuario,
             dirs_origem=dirs_origem,
             dir_destino=str(pasta_lote),
             indice=indice_exibicao,
-            total=meta_lote,
+            total=meta,
             logger=logger,
             verbose=verbose,
         )
 
         motivo = resultado["motivo_exclusao"]
+
         if motivo:
+            # Continua descartado — não registra novamente
             estatisticas[motivo] += 1
-            registrar_descarte(
-                conn=conn,
-                lote_id=lote_id,
-                prontuario=prontuario,
-                motivo=motivo,
-            )
         else:
-            copiados_sucesso += 1
+            # ✅ Recuperado com sucesso
+            recuperados += 1
             estatisticas["pacientes_processados"] += 1
+
             for arq in resultado.get("arquivos_copiados", []):
                 registrar_copia(
                     conn=conn,
@@ -145,11 +165,13 @@ def processar_exames(
                     tipo_exame=arq.get("tipo"),
                     data_exame=arq.get("data"),
                 )
-            
+
             try:
                 registrar_recuperacao(conn, lote_id, prontuario)
             except Exception as exc:
-                logger.error(f"Erro ao registrar recuperação no banco: {exc}")
+                logger.error(
+                    f"  Erro ao registrar recuperação de {prontuario}: {exc}"
+                )
 
         estatisticas["arquivos_copiados"] += resultado["copiados"]
         estatisticas["arquivos_pulados"] += resultado["pulados"]
@@ -159,12 +181,9 @@ def processar_exames(
         estatisticas["arquivos_fora_janela"] += resultado["fora_janela"]
         estatisticas["erros"] += resultado["erros"]
 
-        if copiados_sucesso >= meta_lote:
-            break
+    restantes = total_pendentes - analisados
 
-    restantes = total_pendentes - prontuarios_analisados
-
-    # Finalizar lote
+    # ── Finalizar lote ──
     status = "concluido" if estatisticas["erros"] == 0 else "concluido_com_erros"
     finalizar_lote(
         conn=conn,
@@ -174,7 +193,7 @@ def processar_exames(
         status=status,
     )
 
-    # Relatório
+    # ── Relatório ──
     info_lote = {
         "numero": numero_lote,
         "data_envio": data_envio,
@@ -190,13 +209,14 @@ def processar_exames(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Processador de Exames — Cópia com filtros e lotes",
+        description="Recuperador de Prontuários Descartados — "
+        "Reprocessa descartados e registra recuperações",
     )
     parser.add_argument(
-        "--force",
-        action="store_true",
-        default=False,
-        help="Reprocessa prontuários mesmo que já constem no histórico",
+        "--banco",
+        type=str,
+        default=str(BANCO_HISTORICO),
+        help=f"Caminho do banco de dados (padrão: {BANCO_HISTORICO})",
     )
     parser.add_argument(
         "--origem",
@@ -208,8 +228,20 @@ def main():
     parser.add_argument(
         "--destino",
         type=str,
-        default=DIR_EXAMES_DESTINO,
-        help=f"Diretório de destino das cópias (padrão: {DIR_EXAMES_DESTINO})",
+        default=DIR_SSD_TI,
+        help=f"Diretório de destino das cópias (padrão: {DIR_SSD_TI})",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Reprocessa todos os descartados, mesmo os já recuperados",
+    )
+    parser.add_argument(
+        "--limite",
+        type=int,
+        default=LIMITE_PACIENTES_LOTE,
+        help=f"Número máximo de prontuários a recuperar nesta execução (padrão: {LIMITE_PACIENTES_LOTE})",
     )
     parser.add_argument(
         "--silencioso",
@@ -217,20 +249,15 @@ def main():
         default=False,
         help="Suprime saída detalhada no console",
     )
-    parser.add_argument(
-        "--banco",
-        type=str,
-        default=None,
-        help=f"Caminho do banco de dados (padrão: {BANCO_HISTORICO})",
-    )
     args = parser.parse_args()
 
-    processar_exames(
+    recuperar_descartados(
         dirs_origem=args.origem,
         dir_destino=args.destino,
-        forcar=args.force,
-        verbose=not args.silencioso,
         banco=args.banco,
+        forcar=args.force,
+        limite=args.limite,
+        verbose=not args.silencioso,
     )
 
 
