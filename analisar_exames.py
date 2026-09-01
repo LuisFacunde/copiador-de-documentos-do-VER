@@ -1,15 +1,3 @@
-"""
-Analisador de Exames — Varredura Recursiva.
-
-Varre recursivamente uma pasta geral de exames (ex: \\\\arquivos\\exames),
-identifica arquivos nos formatos antigo e novo, agrupa por prontuário,
-aplica os filtros (RET + OCTPAPILA na janela de ±120 dias) e copia
-os aprovados para o destino.
-
-Diferente dos demais scripts, aqui os prontuários NÃO vêm de uma
-planilha ou do banco — são extraídos diretamente do nome dos arquivos.
-"""
-
 import sys
 import argparse
 from collections import defaultdict
@@ -49,15 +37,9 @@ from src.historico import (
 from src.logger import configurar_logger
 
 
-def descobrir_prontuarios(dir_origem: str, verbose: bool = True) -> dict[str, list[Path]]:
-    """Varre recursivamente o diretório e agrupa arquivos por prontuário.
-
-    Tenta extrair o prontuário do nome de cada arquivo usando os parsers
-    de formato novo e antigo. Retorna um dicionário {prontuário: [arquivos]}.
-
-    Usa os.scandir para melhor desempenho em compartilhamentos de rede
-    e imprime progresso a cada 1000 arquivos analisados.
-    """
+def descobrir_prontuarios(
+    dir_origem: str, verbose: bool = True
+) -> dict[str, list[Path]]:
     import os
 
     pasta = Path(dir_origem)
@@ -95,11 +77,12 @@ def descobrir_prontuarios(dir_origem: str, verbose: bool = True) -> dict[str, li
                                     flush=True,
                                 )
 
-                            # Tentar formato novo primeiro
                             data, prontuario, tipo = extrair_info_arquivo_novo(arquivo)
                             if prontuario is None:
-                                # Fallback para formato antigo
-                                data, prontuario, tipo = extrair_info_arquivo_antigo(arquivo)
+
+                                data, prontuario, tipo = extrair_info_arquivo_antigo(
+                                    arquivo
+                                )
 
                             if prontuario is None:
                                 total_ignorados += 1
@@ -132,7 +115,6 @@ def analisar_exames(
 ) -> None:
     conn = inicializar_banco(banco)
 
-    # ── Fase 1: Descoberta de prontuários ──
     print("\n" + "=" * 70)
     print("  🔎 ANÁLISE DE EXAMES — VARREDURA RECURSIVA")
     print("=" * 70)
@@ -144,7 +126,6 @@ def analisar_exames(
         conn.close()
         return
 
-    # ── Filtrar apenas prontuários presentes na planilha principal ──
     try:
         prontuarios_planilha = set(ler_prontuarios())
         total_antes = len(prontuarios_arquivos)
@@ -156,9 +137,13 @@ def analisar_exames(
         filtrados = total_antes - len(prontuarios_arquivos)
         if verbose:
             print(f"  📋 Prontuários na planilha: {len(prontuarios_planilha)}")
-            print(f"  ✅ Prontuários com match na planilha: {len(prontuarios_arquivos)}")
+            print(
+                f"  ✅ Prontuários com match na planilha: {len(prontuarios_arquivos)}"
+            )
             if filtrados > 0:
-                print(f"  ⏭️  Prontuários ignorados (não estão na planilha): {filtrados}")
+                print(
+                    f"  ⏭️  Prontuários ignorados (não estão na planilha): {filtrados}"
+                )
     except FileNotFoundError as exc:
         print(f"  ❌ {exc}")
         conn.close()
@@ -172,7 +157,6 @@ def analisar_exames(
         conn.close()
         return
 
-    # ── Filtrar prontuários já recuperados ──
     if not forcar:
         try:
             cursor = conn.execute(
@@ -183,9 +167,7 @@ def analisar_exames(
             ja_recuperados = set()
 
         try:
-            cursor = conn.execute(
-                "SELECT DISTINCT prontuario FROM historico_copias"
-            )
+            cursor = conn.execute("SELECT DISTINCT prontuario FROM historico_copias")
             ja_copiados = set(row[0] for row in cursor.fetchall())
         except Exception:
             ja_copiados = set()
@@ -217,7 +199,6 @@ def analisar_exames(
 
     meta = min(limite, total_pendentes) if limite else total_pendentes
 
-    # ── Criar lote ──
     numero_lote = obter_proximo_numero_lote(conn)
     data_envio = datetime.now().strftime("%d-%m-%Y")
     nome_lote = f"Análise {numero_lote} - {data_envio}"
@@ -242,7 +223,6 @@ def analisar_exames(
         logger.info("  ⚠️  Modo --force ativo")
     logger.info("")
 
-    # ── Estatísticas ──
     estatisticas = {
         "pacientes_processados": 0,
         "pasta_nao_encontrada": 0,
@@ -260,7 +240,6 @@ def analisar_exames(
     copiados_sucesso = 0
     analisados = 0
 
-    # ── Fase 2: Processar cada prontuário ──
     for prontuario, arquivos in prontuarios_arquivos.items():
         if copiados_sucesso >= meta:
             break
@@ -305,9 +284,7 @@ def analisar_exames(
             try:
                 registrar_recuperacao(conn, lote_id, prontuario)
             except Exception as exc:
-                logger.error(
-                    f"  Erro ao registrar recuperação de {prontuario}: {exc}"
-                )
+                logger.error(f"  Erro ao registrar recuperação de {prontuario}: {exc}")
 
         estatisticas["arquivos_copiados"] += resultado["copiados"]
         estatisticas["arquivos_pulados"] += resultado["pulados"]
@@ -319,7 +296,6 @@ def analisar_exames(
 
     restantes = total_pendentes - analisados
 
-    # ── Finalizar lote ──
     status = "concluido" if estatisticas["erros"] == 0 else "concluido_com_erros"
     finalizar_lote(
         conn=conn,
@@ -329,7 +305,6 @@ def analisar_exames(
         status=status,
     )
 
-    # ── Relatório ──
     info_lote = {
         "numero": numero_lote,
         "data_envio": data_envio,
@@ -352,12 +327,6 @@ def _processar_prontuario_direto(
     logger=None,
     verbose: bool = True,
 ) -> dict:
-    """Processa um prontuário a partir de uma lista de arquivos já conhecida.
-
-    Semelhante a processar_prontuario do copiador.py, mas em vez de
-    buscar a pasta do prontuário nos diretórios de origem, recebe
-    diretamente a lista de arquivos já descobertos pela varredura.
-    """
     import shutil
     from collections import Counter
 
@@ -389,19 +358,24 @@ def _processar_prontuario_direto(
         stats["motivo_exclusao"] = "pasta_sem_arquivos"
         return stats
 
-    # ── Agrupar exames por tipo (busca híbrida: formato antigo + novo) ──
     try:
         agrupados_antigos = agrupar_exames_antigos(
-            arquivos, logger=logger, verbose=verbose,
+            arquivos,
+            logger=logger,
+            verbose=verbose,
         )
 
-        tem_antigos = bool(agrupados_antigos["RET"]) or bool(agrupados_antigos["OCTPAPILA"])
+        tem_antigos = bool(agrupados_antigos["RET"]) or bool(
+            agrupados_antigos["OCTPAPILA"]
+        )
 
         if tem_antigos:
             agrupados = agrupados_antigos
         else:
             agrupados = agrupar_por_tipo(
-                arquivos, logger=logger, verbose=verbose,
+                arquivos,
+                logger=logger,
+                verbose=verbose,
             )
     except Exception as exc:
         _resumo("❌", f"Erro ao analisar exames: {exc}")
@@ -412,7 +386,6 @@ def _processar_prontuario_direto(
     stats["tipo_invalido"] += agrupados["_tipo_invalido"]
     stats["fora_periodo"] += agrupados["_fora_periodo"]
 
-    # Avaliar correspondência RET↔OCTPAPILA
     aprovado, para_copiar, motivos_reprovacao = avaliar_criterio_paciente(
         ret_lista=agrupados["RET"],
         oct_lista=agrupados["OCTPAPILA"],
@@ -420,7 +393,6 @@ def _processar_prontuario_direto(
         verbose=verbose,
     )
 
-    # Se aprovado com formato antigo, coletar também exames em formato novo
     if aprovado and tem_antigos:
         tipos_aprovados = {item["tipo"] for item in para_copiar}
         exames_novos = coletar_exames_novos(
@@ -467,7 +439,6 @@ def _processar_prontuario_direto(
             stats["motivo_exclusao"] = "exames_sem_correspondencia"
         return stats
 
-    # ── Copiar arquivos ──
     pasta_destino = Path(dir_destino) / prontuario
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
@@ -476,8 +447,7 @@ def _processar_prontuario_direto(
         if arquivo_destino.exists():
             _log(
                 "debug",
-                f"  ⏭️  {prontuario}/{item['nome']} "
-                f"({item['tipo']}) - já copiado",
+                f"  ⏭️  {prontuario}/{item['nome']} " f"({item['tipo']}) - já copiado",
             )
             stats["pulados"] += 1
             continue
@@ -515,7 +485,10 @@ def _processar_prontuario_direto(
         emoji = "❌"
 
     if stats["copiados"] == 0 and stats["pulados"] > 0:
-        _resumo("⏭️", f"Prontuário já copiado anteriormente ({stats['pulados']} arquivo(s) existente(s))")
+        _resumo(
+            "⏭️",
+            f"Prontuário já copiado anteriormente ({stats['pulados']} arquivo(s) existente(s))",
+        )
     else:
         _resumo(emoji, " | ".join(partes))
 

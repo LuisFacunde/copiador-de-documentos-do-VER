@@ -21,11 +21,6 @@ def agrupar_exames_antigos(
     logger: logging.Logger | None = None,
     verbose: bool = False,
 ) -> dict:
-    """Agrupa exames no formato antigo por tipo (RET / OCTPAPILA).
-
-    Apenas arquivos no formato antigo são considerados.
-    A data é obtida do metadado de modificação do arquivo.
-    """
     resultado = {
         "RET": [],
         "OCTPAPILA": [],
@@ -49,7 +44,7 @@ def agrupar_exames_antigos(
         data, prontuario, tipo = extrair_info_arquivo_antigo(arquivo)
 
         if data is None:
-            # Pode ser formato novo — não contabilizar como inválido aqui
+
             continue
 
         if tipo is None:
@@ -88,11 +83,6 @@ def coletar_exames_novos(
     logger: logging.Logger | None = None,
     verbose: bool = False,
 ) -> list[dict]:
-    """Coleta exames no formato novo dos tipos aprovados.
-
-    Após o paciente ser aprovado pelo critério com exames antigos,
-    esta função coleta os exames novos dos mesmos tipos para cópia.
-    """
     resultado = []
 
     def _log(nivel: str, msg: str) -> None:
@@ -145,11 +135,6 @@ def agrupar_por_tipo(
     logger: logging.Logger | None = None,
     verbose: bool = False,
 ) -> dict:
-    """Agrupa exames por tipo usando ambos os formatos.
-
-    Mantido para compatibilidade. O fluxo principal usa
-    agrupar_exames_antigos + coletar_exames_novos.
-    """
     from .parser import extrair_info_arquivo
 
     resultado = {

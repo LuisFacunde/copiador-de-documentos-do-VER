@@ -1,11 +1,3 @@
-"""
-Recuperador de Prontuários Descartados.
-
-Lê prontuários da tabela 'prontuarios_descartados' que ainda não foram
-recuperados, reprocessa-os usando a busca em dois formatos (antigo + novo),
-e registra os recuperados com sucesso na tabela 'prontuarios_recuperados'.
-"""
-
 import sys
 import argparse
 from datetime import datetime
@@ -45,16 +37,11 @@ def recuperar_descartados(
 ) -> None:
     conn = inicializar_banco(banco)
 
-    # ── Buscar prontuários descartados e já recuperados ──
     try:
-        cursor = conn.execute(
-            "SELECT DISTINCT prontuario FROM prontuarios_descartados"
-        )
+        cursor = conn.execute("SELECT DISTINCT prontuario FROM prontuarios_descartados")
         todos_descartados = [row[0] for row in cursor.fetchall()]
 
-        cursor = conn.execute(
-            "SELECT DISTINCT prontuario FROM prontuarios_recuperados"
-        )
+        cursor = conn.execute("SELECT DISTINCT prontuario FROM prontuarios_recuperados")
         ja_recuperados = set(row[0] for row in cursor.fetchall())
     except Exception as exc:
         print(f"  ❌ Erro ao consultar banco: {exc}")
@@ -67,12 +54,16 @@ def recuperar_descartados(
     if forcar:
         prontuarios_pendentes = todos_descartados
     else:
-        prontuarios_pendentes = [p for p in todos_descartados if p not in ja_recuperados]
+        prontuarios_pendentes = [
+            p for p in todos_descartados if p not in ja_recuperados
+        ]
 
     total_pendentes = len(prontuarios_pendentes)
 
     print(f"  📋 Total de prontuários descartados no banco: {total_descartados}")
-    print(f"  ⏭️  Prontuários descartados já recuperados/copiados: {total_ja_recuperados}")
+    print(
+        f"  ⏭️  Prontuários descartados já recuperados/copiados: {total_ja_recuperados}"
+    )
     print(f"  📋 Prontuários pendentes de recuperação: {total_pendentes}")
 
     if total_pendentes == 0:
@@ -84,7 +75,6 @@ def recuperar_descartados(
 
     meta = min(limite, total_pendentes) if limite else total_pendentes
 
-    # ── Criar lote de recuperação ──
     numero_lote = obter_proximo_numero_lote(conn)
     data_envio = datetime.now().strftime("%d-%m-%Y")
     nome_lote = f"Recuperação {numero_lote} - {data_envio}"
@@ -107,10 +97,11 @@ def recuperar_descartados(
     logger.info(f"  📂 Origem: {dirs_origem}")
     logger.info(f"  🗄️  Banco: {banco}")
     if forcar:
-        logger.info("  ⚠️  Modo --force ativo (reprocessando inclusive os já recuperados)")
+        logger.info(
+            "  ⚠️  Modo --force ativo (reprocessando inclusive os já recuperados)"
+        )
     logger.info("")
 
-    # ── Estatísticas ──
     estatisticas = {
         "pacientes_processados": 0,
         "pasta_nao_encontrada": 0,
@@ -128,7 +119,6 @@ def recuperar_descartados(
     recuperados = 0
     analisados = 0
 
-    # ── Processar cada prontuário ──
     for prontuario in prontuarios_pendentes:
         if recuperados >= meta:
             break
@@ -149,10 +139,10 @@ def recuperar_descartados(
         motivo = resultado["motivo_exclusao"]
 
         if motivo:
-            # Continua descartado — não registra novamente
+
             estatisticas[motivo] += 1
         else:
-            # ✅ Recuperado com sucesso
+
             recuperados += 1
             estatisticas["pacientes_processados"] += 1
 
@@ -169,9 +159,7 @@ def recuperar_descartados(
             try:
                 registrar_recuperacao(conn, lote_id, prontuario)
             except Exception as exc:
-                logger.error(
-                    f"  Erro ao registrar recuperação de {prontuario}: {exc}"
-                )
+                logger.error(f"  Erro ao registrar recuperação de {prontuario}: {exc}")
 
         estatisticas["arquivos_copiados"] += resultado["copiados"]
         estatisticas["arquivos_pulados"] += resultado["pulados"]
@@ -183,7 +171,6 @@ def recuperar_descartados(
 
     restantes = total_pendentes - analisados
 
-    # ── Finalizar lote ──
     status = "concluido" if estatisticas["erros"] == 0 else "concluido_com_erros"
     finalizar_lote(
         conn=conn,
@@ -193,7 +180,6 @@ def recuperar_descartados(
         status=status,
     )
 
-    # ── Relatório ──
     info_lote = {
         "numero": numero_lote,
         "data_envio": data_envio,

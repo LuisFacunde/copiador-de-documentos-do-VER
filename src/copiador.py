@@ -2,7 +2,6 @@ import logging
 import shutil
 from collections import Counter
 from pathlib import Path
-
 from .filtros import (
     agrupar_exames_antigos,
     coletar_exames_novos,
@@ -54,7 +53,6 @@ def processar_prontuario(
         stats["motivo_exclusao"] = "pasta_nao_encontrada"
         return stats
 
-    # Coletar arquivos de todas as pastas de origem
     arquivos_na_pasta = []
     for pasta_origem in pastas_origem:
         try:
@@ -66,22 +64,23 @@ def processar_prontuario(
     if stats["erros"] and not arquivos_na_pasta:
         return stats
 
-    # ── Agrupar exames por tipo (busca híbrida: formato antigo + novo) ──
     try:
-        # Fase 1: buscar exames no formato antigo
+
         agrupados_antigos = agrupar_exames_antigos(
             arquivos_na_pasta,
             logger=logger,
             verbose=verbose,
         )
 
-        tem_antigos = bool(agrupados_antigos["RET"]) or bool(agrupados_antigos["OCTPAPILA"])
+        tem_antigos = bool(agrupados_antigos["RET"]) or bool(
+            agrupados_antigos["OCTPAPILA"]
+        )
 
         if tem_antigos:
-            # Usar formato antigo para validação
+
             agrupados = agrupados_antigos
         else:
-            # Fallback: busca híbrida (formato novo + antigo)
+
             agrupados = agrupar_por_tipo(
                 arquivos_na_pasta,
                 logger=logger,
@@ -96,7 +95,6 @@ def processar_prontuario(
     stats["tipo_invalido"] += agrupados["_tipo_invalido"]
     stats["fora_periodo"] += agrupados["_fora_periodo"]
 
-    # Avaliar correspondência RET↔OCTPAPILA
     aprovado, para_copiar, motivos_reprovacao = avaliar_criterio_paciente(
         ret_lista=agrupados["RET"],
         oct_lista=agrupados["OCTPAPILA"],
@@ -104,7 +102,6 @@ def processar_prontuario(
         verbose=verbose,
     )
 
-    # Fase 2: se aprovado com formato antigo, coletar também exames em formato novo
     if aprovado and tem_antigos:
         tipos_aprovados = {item["tipo"] for item in para_copiar}
         exames_novos = coletar_exames_novos(
@@ -113,7 +110,7 @@ def processar_prontuario(
             logger=logger,
             verbose=verbose,
         )
-        # Adicionar exames novos à lista de cópia (sem duplicar)
+
         paths_ja_incluidos = {str(item["path"]) for item in para_copiar}
         for exame_novo in exames_novos:
             if str(exame_novo["path"]) not in paths_ja_incluidos:
@@ -152,7 +149,6 @@ def processar_prontuario(
             stats["motivo_exclusao"] = "exames_sem_correspondencia"
         return stats
 
-    # ── Copiar arquivos ──
     pasta_destino = Path(dir_destino) / prontuario
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
@@ -161,8 +157,7 @@ def processar_prontuario(
         if arquivo_destino.exists():
             _log(
                 "debug",
-                f"  ⏭️  {prontuario}/{item['nome']} "
-                f"({item['tipo']}) - já copiado",
+                f"  ⏭️  {prontuario}/{item['nome']} " f"({item['tipo']}) - já copiado",
             )
             stats["pulados"] += 1
             continue
@@ -200,7 +195,10 @@ def processar_prontuario(
         emoji = "❌"
 
     if stats["copiados"] == 0 and stats["pulados"] > 0:
-        _resumo("⏭️", f"Prontuário já copiado anteriormente ({stats['pulados']} arquivo(s) existente(s))")
+        _resumo(
+            "⏭️",
+            f"Prontuário já copiado anteriormente ({stats['pulados']} arquivo(s) existente(s))",
+        )
     else:
         _resumo(emoji, " | ".join(partes))
 

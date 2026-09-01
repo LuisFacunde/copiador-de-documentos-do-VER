@@ -8,7 +8,12 @@ reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
 if callable(reconfigure_stdout):
     reconfigure_stdout(encoding="utf-8")
 
-from src.config import DIRS_EXAMES_ORIGEM, DIR_EXAMES_DESTINO, LIMITE_PACIENTES_LOTE, BANCO_HISTORICO
+from src.config import (
+    DIRS_EXAMES_ORIGEM,
+    DIR_EXAMES_DESTINO,
+    LIMITE_PACIENTES_LOTE,
+    BANCO_HISTORICO,
+)
 from src.copiador import processar_prontuario
 from src.relatorio import imprimir_relatorio
 from src.historico import (
@@ -36,7 +41,6 @@ def processar_exames(
     conn = inicializar_banco(caminho_banco)
 
     try:
-        # Lendo apenas da tabela de descartados (ainda não recuperados)
         cursor = conn.execute("""
             SELECT DISTINCT d.prontuario 
             FROM prontuarios_descartados d
@@ -53,7 +57,9 @@ def processar_exames(
     print(f"  📋 Total de prontuários descartados disponíveis: {total_planilha}")
 
     if forcar:
-        print("  ⚠️  Modo --force ativo: reprocessando todos os prontuários (mesmo os recuperados)")
+        print(
+            "  ⚠️  Modo --force ativo: reprocessando todos os prontuários (mesmo os recuperados)"
+        )
         cursor = conn.execute("SELECT DISTINCT prontuario FROM prontuarios_descartados")
         prontuarios_pendentes = [row[0] for row in cursor.fetchall()]
     else:
@@ -68,17 +74,14 @@ def processar_exames(
 
     meta_lote = LIMITE_PACIENTES_LOTE
 
-    # Criar lote
     numero_lote = obter_proximo_numero_lote(conn)
     data_envio = datetime.now().strftime("%d-%m-%Y")
     nome_lote = f"Lote {numero_lote} - {data_envio}"
     lote_id = criar_lote(conn, numero_lote, data_envio)
 
-    # Criar pasta do lote
     pasta_lote = Path(dir_destino) / nome_lote
     pasta_lote.mkdir(parents=True, exist_ok=True)
 
-    # Configurar logger (dentro da pasta do lote)
     caminho_log = pasta_lote / f"log_lote_{numero_lote}.txt"
     logger = configurar_logger(caminho_log, numero_lote)
 
@@ -92,7 +95,6 @@ def processar_exames(
         logger.info("  ⚠️  Modo --force ativo")
     logger.info("")
 
-    # Processar prontuários
     estatisticas = {
         "pacientes_processados": 0,
         "pasta_nao_encontrada": 0,
@@ -145,7 +147,7 @@ def processar_exames(
                     tipo_exame=arq.get("tipo"),
                     data_exame=arq.get("data"),
                 )
-            
+
             try:
                 registrar_recuperacao(conn, lote_id, prontuario)
             except Exception as exc:
@@ -164,7 +166,6 @@ def processar_exames(
 
     restantes = total_pendentes - prontuarios_analisados
 
-    # Finalizar lote
     status = "concluido" if estatisticas["erros"] == 0 else "concluido_com_erros"
     finalizar_lote(
         conn=conn,
@@ -174,7 +175,6 @@ def processar_exames(
         status=status,
     )
 
-    # Relatório
     info_lote = {
         "numero": numero_lote,
         "data_envio": data_envio,

@@ -19,18 +19,23 @@ DIRS_EXAMES_ORIGEM = [
     r"\\192.168.4.52\c$\exames",
 ]
 
+DIRS_EXAMES_ANTIGOS = r"\\arquivos\exames"
+
 DIR_EXAMES_DESTINO = "C:/Users/luis.silva/Desktop/anexos_exames_copias"
 DIR_SSD_TI = r"D:\Projeto FAV X EINSTEIN\Prontuários recuperados"
 
 DIR_EXAMES_GERAL = r"\\arquivos\exames"
-DIR_RECUPERACAO_ARQUIVOSFAV = r"D:\Projeto FAV X EINSTEIN\Lotes PDFs enviados\Recuperação arquivosfav"
+DIR_RECUPERACAO_ARQUIVOSFAV = (
+    r"D:\Projeto FAV X EINSTEIN\Lotes PDFs enviados\Recuperação arquivosfav"
+)
 
 DATA_MIN = datetime(2020, 1, 1)
 DATA_MAX = datetime(2026, 6, 30)
 
 MAPA_TIPOS = {
-    "RETIN": "RET",
+    "RET": "RET",
     "OCTPAPILA": "OCTPAPILA",
+    "PAPILA": "OCTPAPILA",
 }
 
 JANELA_DIAS = 120
@@ -40,3 +45,4 @@ EXTENSAO_PERMITIDA = ".pdf"
 LIMITE_PACIENTES_LOTE = 2500
 
 BANCO_HISTORICO = _BASE / "dados" / "bd" / "historico.db"
+BANCO_HISTORICO_COMPLETO = _BASE / "dados" / "bd" / "historico_completo.db"
